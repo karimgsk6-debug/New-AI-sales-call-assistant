@@ -1,4 +1,5 @@
 import streamlit as st
+import groq
 from groq import Groq
 
 client = Groq(
