@@ -1,100 +1,109 @@
 import streamlit as st
-from streamlit_mic_recorder import mic_recorder
+from PIL import Image
+import requests
+from io import BytesIO
+import groq
 from groq import Groq
-from gtts import gTTS
-import base64
-import os
 
 # --- Initialize Groq client ---
-client = Groq(api_key=st.secrets["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"])
-
-# --- Language filter ---
-language = st.radio("🌐 Select Language / اختر اللغة", ["English", "العربية"])
-if language == "English":
-    t = {
-        "send": "Send",
-        "loading": "Generating response...",
-        "system_prompt": "You are a GSK sales call assistant helping reps with call approaches.",
-        "user_prompt": "Doctor Specialty: {specialty}\nSegment: {segment}\nBehavior: {behavior}\nObjective: {objective}\nBrand: {brand}\n\nGenerate tailored suggestions based on approved GSK sales approaches.",
-        "leaflet": "View Product Leaflet",
-        "play_again": "🔊 Play Again"
-    }
-    tts_lang = "en"
-else:
-    t = {
-        "send": "إرسال",
-        "loading": "جاري إنشاء الاستجابة...",
-        "system_prompt": "أنت مساعد مكالمات مبيعات من GSK تساعد المندوبين في طرق البيع المعتمدة.",
-        "user_prompt": "تخصص الطبيب: {specialty}\nالشريحة: {segment}\nالسلوك: {behavior}\nالهدف: {objective}\nالعلامة التجارية: {brand}\n\nقم بإنشاء اقتراحات مخصصة استنادًا إلى طرق البيع المعتمدة من GSK.",
-        "leaflet": "عرض النشرة",
-        "play_again": "🔊 إعادة التشغيل"
-    }
-    tts_lang = "ar"
-
-# --- Define dropdown options ---
-gsk_brands = {
-    "Augmentin": "https://www.medicines.org.uk/emc/product/1049/smpc",
-    "Shingrix": "https://www.ema.europa.eu/en/medicines/human/EPAR/shingrix",
-    "Seretide": "https://www.medicines.org.uk/emc/product/4498/smpc"
-}
-
-segments = ["Evidence-Seeker", "Relationship-Oriented", "Skeptic"]
-behaviors = ["Scientific", "Emotional", "Logical"]
-objectives = ["Awareness", "Convince", "Reinforce"]
-specialties = ["GP", "Dermatologist", "Pulmonologist", "Other"]
-
-# --- User selections ---
-brand = st.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
-specialty = st.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", options=specialties)
-segment = st.selectbox("Select Segment / اختر الشريحة", options=segments)
-behavior = st.selectbox("Select Behavior / اختر السلوك", options=behaviors)
-objective = st.selectbox("Select Objective / اختر الهدف", options=objectives)
+client = Groq(api_key="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")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "last_audio" not in st.session_state:
-    st.session_state.last_audio = None
+
+# --- Language selector ---
+language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
+
+# --- GSK brand mappings ---
+gsk_brands = {
+    "Augmentin": "https://example.com/augmentin-leaflet",
+    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Seretide": "https://example.com/seretide-leaflet",
+}
+
+# --- Brand logos (mix of local and URL) ---
+gsk_brands_images = {
+    "Augmentin": "images/augmentin.png",  
+    "Shingrix": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Shingrix_logo.png/320px-Shingrix_logo.png",  # URL logo
+    "Seretide": "images/seretide.png",
+}
+
+# --- Example filters ---
+segments = ["Evidence-Seeker", "Skeptic", "Relationship-Oriented"]
+behaviors = ["Scientific", "Emotional", "Logical"]
+objectives = ["Awareness", "Adoption", "Retention"]
+specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
+
+# Approved sales approaches (replace with your official list)
+gsk_approaches = [
+    "Use data-driven evidence",
+    "Focus on patient outcomes",
+    "Leverage storytelling techniques",
+]
+
+# --- Page layout ---
+st.title("🧠 AI Sales Call Assistant")
+brand = st.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
+
+# --- Load brand image safely ---
+image_path = gsk_brands_images.get(brand)
+try:
+    if image_path.startswith("http"):  # Load from URL
+        response = requests.get(image_path)
+        img = Image.open(BytesIO(response.content))
+    else:  # Load local file
+        img = Image.open(image_path)
+    st.image(img, width=200)
+except Exception:
+    st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
+    st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
+
+# --- Inputs ---
+segment = st.selectbox("Select Segment / اختر الشريحة", segments)
+behavior = st.selectbox("Select Behavior / اختر السلوك", behaviors)
+objective = st.selectbox("Select Objective / اختر الهدف", objectives)
+specialty = st.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
 
 # --- Clear chat button ---
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
-    st.session_state.last_audio = None
 
 # --- Chat container ---
 chat_container = st.container()
 
-# --- Voice Input ---
-st.markdown("🎙️ Speak your message instead of typing:")
-voice_text = mic_recorder(start_prompt="Start recording", stop_prompt="Stop recording", just_once=True, use_container_width=True)
+# --- User message input ---
+placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
+user_input = st.text_area(placeholder_text, key="user_input", height=80)
 
-# If voice was recorded, set it as user input
-if voice_text and "text" in voice_text and voice_text["text"].strip() != "":
-    user_input = voice_text["text"]
-else:
-    user_input = st.text_input("💬 Enter your message (optional)")
+if st.button("🚀 Send / أرسل") and user_input.strip():
+    with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
+        # Append user input to chat history
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
 
-# --- Send button ---
-if st.button(t["send"]):
-    with st.spinner(t["loading"]):
-        # Store user input in chat history
-        user_message = f"Segment: {segment}, Behavior: {behavior}, Objective: {objective}, Brand: {brand}, Specialty: {specialty}\nUser said: {user_input}"
-        st.session_state.chat_history.append({"role": "user", "content": user_message})
+        # Prepare dynamic GSK approaches context
+        approaches_str = "\n".join(gsk_approaches)
 
-        # Prepare AI prompt
-        prompt = t["user_prompt"].format(
-            specialty=specialty,
-            segment=segment,
-            behavior=behavior,
-            objective=objective,
-            brand=brand,
-        ) + f"\n\nDoctor Input: {user_input}"
+        # Build AI prompt with language + specialty
+        prompt = f"""
+        Language: {language}
+        You are an expert GSK sales assistant. 
+        User input: {user_input}
+        Segment: {segment}
+        Behavior: {behavior}
+        Objective: {objective}
+        Brand: {brand}
+        Doctor Specialty: {specialty}
+        Approved GSK Sales Approaches:
+        {approaches_str}
+        Provide actionable suggestions in a friendly, professional tone.
+        """
 
         # Call Groq API
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
-                {"role": "system", "content": t["system_prompt"]},
+                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7
@@ -102,31 +111,6 @@ if st.button(t["send"]):
 
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
-
-        # --- Text-to-Speech (gTTS) ---
-        tts = gTTS(ai_output, lang=tts_lang)
-        tts.save("ai_response.mp3")
-
-        with open("ai_response.mp3", "rb") as f:
-            audio_bytes = f.read()
-        st.session_state.last_audio = base64.b64encode(audio_bytes).decode()
-
-        # Autoplay AI response
-        audio_html = f"""
-        <audio autoplay controls>
-            <source src="data:audio/mp3;base64,{st.session_state.last_audio}" type="audio/mp3">
-        </audio>
-        """
-        st.markdown(audio_html, unsafe_allow_html=True)
-
-# --- Play Again button ---
-if st.session_state.last_audio and st.button(t["play_again"]):
-    audio_html = f"""
-    <audio autoplay controls>
-        <source src="data:audio/mp3;base64,{st.session_state.last_audio}" type="audio/mp3">
-    </audio>
-    """
-    st.markdown(audio_html, unsafe_allow_html=True)
 
 # --- Display chat history ---
 with chat_container:
@@ -171,5 +155,5 @@ with chat_container:
                 unsafe_allow_html=True
             )
 
-# --- Product leaflet link ---
-st.markdown(f"[{t['leaflet']} - {brand}]({gsk_brands[brand]})")
+# --- Leaflet link below chat ---
+st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
