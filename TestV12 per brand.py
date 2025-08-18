@@ -9,7 +9,7 @@ from groq import Groq
 st.set_page_config(page_title="🧠 AI Sales Call Assistant", layout="centered")
 
 # --------------------
-# Groq Client Init
+# Groq Client Setup
 # --------------------
 client = Groq(api_key=st.secrets["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"])
 
@@ -28,20 +28,19 @@ lang = st.radio("🌐 Select Language / اختر اللغة", ["English", "ال�
 # Input Filters
 # --------------------
 brand = st.selectbox("Select Brand / اختر العلامة التجارية", ["Augmentin", "Shingrix", "Seretide"])
-specialty = st.selectbox("Select Doctor Specialty / اختر تخصص الطبيب",
+specialty = st.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", 
                          ["General Practitioner", "Cardiologist", "Dermatologist", "Pulmonologist", "Other"])
 segment = st.selectbox("Select Segment / اختر الفئة", ["Evidence-Seeker", "Relationship-Oriented", "Skeptic"])
 behavior = st.selectbox("Select Behavior / اختر السلوك", ["Scientific", "Emotional", "Logical"])
 objective = st.selectbox("Select Objective / اختر الهدف", ["Awareness", "Trial", "Adoption"])
 
 # --------------------
-# Voice Recorder
+# 🎤 Voice Input (st_audiorec)
 # --------------------
 st.markdown("🎤 Speak your input:")
 wav_audio_data = st_audiorec()
 
 user_message = None
-
 if wav_audio_data is not None:
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
         tmpfile.write(wav_audio_data)
@@ -49,11 +48,11 @@ if wav_audio_data is not None:
 
     st.audio(audio_path, format="audio/wav")
 
-    # ---- Speech-to-Text (Groq Whisper) ----
-    with open(audio_path, "rb") as audio_file:
+    # ---- Speech-to-Text with Groq Whisper ----
+    with open(audio_path, "rb") as f:
         transcript = client.audio.transcriptions.create(
-            model="whisper-large-v3",  # Groq's Whisper model
-            file=audio_file,
+            model="whisper-large-v3",
+            file=f,
             response_format="text"
         )
     user_message = transcript
@@ -64,6 +63,9 @@ if wav_audio_data is not None:
 # --------------------
 user_text = st.text_input("Or type your input here / أو اكتب هنا")
 
+# --------------------
+# Process Input
+# --------------------
 if st.button("Send / إرسال"):
     if user_message:  # from voice
         final_message = f"{user_message} | Segment: {segment}, Behavior: {behavior}, Objective: {objective}, Brand: {brand}, Specialty: {specialty}, Language: {lang}"
@@ -76,64 +78,14 @@ if st.button("Send / إرسال"):
         # Save user input
         st.session_state.chat_history.append({"role": "user", "content": final_message})
 
-        # --- Call Groq LLM for suggestions ---
-        completion = client.chat.completions.create(
-            model="llama3-70b-8192",
-            messages=[
-                {"role": "system", "content": "You are a helpful AI Sales Call Assistant for pharma reps."},
-                {"role": "user", "content": final_message}
-            ]
-        )
-        ai_output = completion.choices[0].message.content
-
+        # --- Example AI Call (placeholder for now) ---
+        ai_output = f"✅ Suggested approach for {brand} with {specialty} ({segment}, {behavior}, {objective}) - Based on input: {final_message}"
+        
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
-
-# --------------------
-# Clear Chat
-# --------------------
-if st.button("🗑️ Clear Chat / مسح المحادثة"):
-    st.session_state.chat_history = []
 
 # --------------------
 # Display Chat History
 # --------------------
 for msg in st.session_state.chat_history:
-    if msg["role"] == "user":
-        st.markdown(
-            f"""
-            <div style="
-                text-align:right;
-                margin:10px 0;
-                padding:10px;
-                background-color:#d1e7dd;
-                border-radius:12px;
-                display:inline-block;
-                max-width:80%;
-                font-family:sans-serif;
-                white-space:pre-wrap;
-            ">
-            <strong>You:</strong><br>{msg['content']}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown(
-            f"""
-            <div style="
-                text-align:left;
-                margin:10px 0;
-                padding:15px;
-                background-color:#f0f2f6;
-                border-radius:12px;
-                display:inline-block;
-                max-width:80%;
-                box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-                font-family:sans-serif;
-                white-space:pre-wrap;
-            ">
-            <strong>AI:</strong><br>{msg['content']}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    role = "You" if msg["role"] == "user" else "AI"
+    st.markdown(f"**{role}:** {msg['content']}")
