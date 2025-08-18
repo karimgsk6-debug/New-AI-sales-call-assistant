@@ -18,7 +18,7 @@ language = st.radio("Select Language / اختر اللغة", options=["English",
 # --- GSK brand mappings ---
 gsk_brands = {
     "Augmentin": "https://example.com/augmentin-leaflet",
-    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Shingrix": "https://www.google.com/url?sa=i&url=https%3A%2F%2Fhhmp.com.au%2Fshingles-shingrix-vaccine%2F&psig=AOvVaw1jsFrPkAycAxxGQO9iTPLY&ust=1755612628847000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCPD9jOzElI8DFQAAAAAdAAAAABAS",
     "Seretide": "https://example.com/seretide-leaflet",
 }
 
