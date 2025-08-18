@@ -17,9 +17,9 @@ language = st.radio("Select Language / اختر اللغة", options=["English",
 
 # --- GSK brand mappings ---
 gsk_brands = {
-    "Augmentin": "https://example.com/augmentin-leaflet",
+    "Augmentin": "https://cdn.salla.sa/QeZox/b1YauopNvuxG1dhGiBs1q6JMKgjcVnsoIRzejZ4a.png",
     "Shingrix": "https://www.google.com/url?sa=i&url=https%3A%2F%2Fhhmp.com.au%2Fshingles-shingrix-vaccine%2F&psig=AOvVaw1jsFrPkAycAxxGQO9iTPLY&ust=1755612628847000&source=images&cd=vfe&opi=89978449&ved=0CBUQjRxqFwoTCPD9jOzElI8DFQAAAAAdAAAAABAS",
-    "Seretide": "https://example.com/seretide-leaflet",
+    "Seretide": "https://pharmacareonline.qa/cdn/shop/products/SERETIDEDISKUS500.jpg?v=1675325654&width=480",
 }
 
 gsk_brands_images = {
