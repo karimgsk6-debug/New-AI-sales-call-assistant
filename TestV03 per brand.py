@@ -13,6 +13,16 @@ gsk_brands = {
     "Avodart": "https://www.medicines.org.uk/emc/product/4189/pil"
 }
 
+# ✅ Approved GSK Sales Approaches
+gsk_approaches = [
+    "Awareness & Disease Education",
+    "Product Efficacy & Clinical Evidence",
+    "Safety Profile & Tolerability",
+    "Dosing & Administration",
+    "Patient Support & Adherence",
+    "Objection Handling"
+]
+
 # Language Selection
 language = st.selectbox("🌐 Select Language / اختر اللغة:", ["English", "العربية"])
 
@@ -29,6 +39,7 @@ translations = {
         "loading": "Generating recommendations...",
         "result_title": "🤖 AI Recommendations",
         "leaflet": "📄 Patient Information Leaflet",
+        "approved_approaches": "✅ Approved GSK Sales Approaches",
         "segments": ["Evidence-Seeker", "Skeptic", "Time-Pressured", "Early Adopter", "Traditionalist"],
         "behaviors": ["Scientific", "Skeptical", "Passive", "Emotional", "Argumentative"],
         "objectives": ["Awareness", "Objection Handling", "Follow-up", "New Launch", "Reminder"],
@@ -40,11 +51,14 @@ translations = {
             - Segment: {segment}
             - Behavior: {behavior}
             - Visit Objective: {objective}
+            - Brand: {brand}
 
-            Suggest the following for the GSK Brand {brand}:
+            Suggest the following:
             1. Three probing questions the rep should ask the doctor.
             2. Recommended communication style for this profile.
-            3. Most suitable sales module.
+            3. The most suitable sales approach for this visit. 
+               IMPORTANT: You must select one ONLY from this approved list:
+               {approaches}
 
             Be specific, concise, and practical.
         """
@@ -60,6 +74,7 @@ translations = {
         "loading": "جاري توليد الاقتراحات...",
         "result_title": "🤖 اقتراحات الذكاء الاصطناعي",
         "leaflet": "📄 النشرة الدوائية للمريض",
+        "approved_approaches": "✅ أساليب البيع المعتمدة من GSK",
         "segments": ["باحث عن الأدلة", "مشَكّك", "مضغوط بالوقت", "مُبكر التبني", "تقليدي"],
         "behaviors": ["علمي", "مشَكّك", "سلبي", "عاطفي", "مجادل"],
         "objectives": ["زيادة الوعي", "التعامل مع الاعتراضات", "متابعة", "إطلاق جديد", "تذكير"],
@@ -71,11 +86,14 @@ translations = {
             - نوع الطبيب: {segment}
             - سلوك الطبيب: {behavior}
             - هدف الزيارة: {objective}
+            - المنتج: {brand}
 
-            اقترح التالي لمنتج GSK {brand}:
+            اقترح التالي:
             1. ثلاثة أسئلة استكشافية يمكن للمندوب طرحها على الطبيب.
             2. أسلوب التواصل الأنسب لهذا النوع من الأطباء.
-            3. الوحدة البيعية الأنسب لهذه الحالة.
+            3. أسلوب البيع الأنسب لهذه الحالة. 
+               هام: يجب اختيار أسلوب واحد فقط من القائمة التالية:
+               {approaches}
 
             الرجاء الرد باللغة العربية فقط، وكن محددًا وعمليًا.
         """
@@ -94,9 +112,21 @@ behavior = st.selectbox(t["select_behavior"], t["behaviors"])
 objective = st.selectbox(t["select_objective"], t["objectives"])
 brand = st.selectbox(t["select_brand"], list(gsk_brands.keys()))
 
+# Show approved approaches
+st.subheader(t["approved_approaches"])
+for a in gsk_approaches:
+    st.write(f"- {a}")
+
 if st.button(t["generate"]):
     with st.spinner(t["loading"]):
-        prompt = t["user_prompt"].format(segment=segment, behavior=behavior, objective=objective, brand=brand)
+        approaches_str = "\n".join(gsk_approaches)
+        prompt = t["user_prompt"].format(
+            segment=segment,
+            behavior=behavior,
+            objective=objective,
+            brand=brand,
+            approaches=approaches_str
+        )
 
         response = client.chat.completions.create(
             model="llama3-70b-8192",  # ✅ Use valid Groq model
