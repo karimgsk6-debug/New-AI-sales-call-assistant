@@ -10,7 +10,7 @@ client = Groq(api_key="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"
 # --- GSK brand mappings ---
 gsk_brands = {
     "Augmentin": "https://example.com/augmentin-leaflet",
-    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Shingrix": "https://atamed.sg/images/shingrix-vaccine.webp",
     "Seretide": "https://example.com/seretide-leaflet",
 }
 # --- Initialize session state ---
