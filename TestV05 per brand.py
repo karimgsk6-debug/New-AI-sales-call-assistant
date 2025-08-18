@@ -1,12 +1,20 @@
 import streamlit as st
-import groq
+import os
 from groq import Groq
 
 # Initialize Groq client with your API key
 client = Groq(
     api_key="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",)
 
-# Define GSK's approved selling approaches
+# Define GSK brands with links to public PILs
+gsk_brands = {
+    "Augmentin": "https://www.medicines.org.uk/emc/product/1112/pil",
+    "Ventolin": "https://www.medicines.org.uk/emc/product/761/pil",
+    "Seretide": "https://www.medicines.org.uk/emc/product/76/pil",
+    "Avodart": "https://www.medicines.org.uk/emc/product/4189/pil"
+}
+
+# Approved GSK Sales Approaches
 gsk_approaches = [
     "Awareness & Disease Education",
     "Product Efficacy & Clinical Evidence",
@@ -16,7 +24,7 @@ gsk_approaches = [
     "Objection Handling"
 ]
 
-# Language Selection
+# Language selection
 language = st.selectbox("🌐 Select Language / اختر اللغة:", ["English", "العربية"])
 
 # Translations dictionary
@@ -27,33 +35,36 @@ translations = {
         "select_segment": "Select Doctor Segment:",
         "select_behavior": "Select Doctor Behavior:",
         "select_objective": "Select Visit Objective:",
+        "select_brand": "Select GSK Brand:",
         "generate": "Generate AI Suggestions",
         "loading": "Generating recommendations...",
         "result_title": "🤖 AI Recommendations",
+        "leaflet": "📄 Patient Information Leaflet",
+        "approved_approaches": "✅ Approved GSK Sales Approaches",
         "segments": ["Evidence-Seeker", "Skeptic", "Time-Pressured", "Early Adopter", "Traditionalist"],
         "behaviors": ["Scientific", "Skeptical", "Passive", "Emotional", "Argumentative"],
         "objectives": ["Awareness", "Objection Handling", "Follow-up", "New Launch", "Reminder"],
         "system_prompt": "You are an expert pharma sales assistant AI.",
         "user_prompt": """
-            You are an expert pharma sales assistant AI.
+You are an expert pharma sales assistant AI.
 
-            Based on:
-            - Segment: {segment}
-            - Behavior: {behavior}
-            - Visit Objective: {objective}
-            - Brand: {brand}
+Based on:
+- Segment: {segment}
+- Behavior: {behavior}
+- Visit Objective: {objective}
+- Brand: {brand}
 
-            Use the official GSK Selling Approaches as your framework:
-            {approaches}
+Use the official GSK Selling Approaches as your framework:
+{approaches}
 
-            Your tasks:
-            1. Suggest **three probing questions** aligned with the most relevant GSK selling approach.
-            2. Recommend a **communication style** that matches the doctor’s profile and the chosen approach.
-            3. Select **ONE selling approach only** from the approved list above and explain why it is the best fit.
-            4. Adapt your suggestions so they remain fully compliant with the approved GSK sales approaches.
+Your tasks:
+1. Suggest **three probing questions** aligned with the most relevant GSK selling approach.
+2. Recommend a **communication style** that matches the doctor’s profile and the chosen approach.
+3. Select **ONE selling approach only** from the approved list above and **bold it in your response**.
+4. Adapt your suggestions so they remain fully compliant with the approved GSK selling approaches.
 
-            Be specific, concise, and practical.
-        """
+Be specific, concise, and practical.
+"""
     },
     "العربية": {
         "title": "🧠 مساعد الزيارات الطبية بالذكاء الاصطناعي",
@@ -61,33 +72,36 @@ translations = {
         "select_segment": "اختر نوع الطبيب:",
         "select_behavior": "اختر سلوك الطبيب:",
         "select_objective": "اختر هدف الزيارة:",
+        "select_brand": "اختر منتج من GSK:",
         "generate": "احصل على الاقتراحات",
         "loading": "جاري توليد الاقتراحات...",
         "result_title": "🤖 اقتراحات الذكاء الاصطناعي",
+        "leaflet": "📄 النشرة الدوائية للمريض",
+        "approved_approaches": "✅ أساليب البيع المعتمدة من GSK",
         "segments": ["باحث عن الأدلة", "مشكك", "مضغوط بالوقت", "مبكر التبني", "تقليدي"],
         "behaviors": ["علمي", "مشكك", "سلبي", "عاطفي", "مجادل"],
         "objectives": ["زيادة الوعي", "التعامل مع الاعتراضات", "متابعة", "إطلاق جديد", "تذكير"],
         "system_prompt": "أنت مساعد خبير في مبيعات الأدوية مدعوم بالذكاء الاصطناعي.",
         "user_prompt": """
-            أنت مساعد خبير في مبيعات الأدوية مدعوم بالذكاء الاصطناعي.
+أنت مساعد خبير في مبيعات الأدوية مدعوم بالذكاء الاصطناعي.
 
-            بناءً على:
-            - نوع الطبيب: {segment}
-            - سلوك الطبيب: {behavior}
-            - هدف الزيارة: {objective}
-            - المنتج: {brand}
+بناءً على:
+- نوع الطبيب: {segment}
+- سلوك الطبيب: {behavior}
+- هدف الزيارة: {objective}
+- المنتج: {brand}
 
-            استخدم أساليب البيع المعتمدة من GSK كإطار عمل:
-            {approaches}
+استخدم أساليب البيع المعتمدة من GSK كإطار عمل:
+{approaches}
 
-            المطلوب:
-            1. اقترح **ثلاثة أسئلة استكشافية** مرتبطة بأسلوب البيع الأنسب.
-            2. أوصِ بـ **أسلوب التواصل** الأنسب الذي يتماشى مع ملف الطبيب والأسلوب المختار.
-            3. اختر **أسلوب بيع واحد فقط** من القائمة أعلاه ووضح لماذا هو الأنسب.
-            4. عدّل اقتراحاتك لتبقى ملتزمة تمامًا بالأساليب المعتمدة من GSK.
+المطلوب:
+1. اقترح **ثلاثة أسئلة استكشافية** مرتبطة بأسلوب البيع الأنسب.
+2. أوصِ بـ **أسلوب التواصل** الأنسب الذي يتماشى مع ملف الطبيب والأسلوب المختار.
+3. اختر **أسلوب بيع واحد فقط** من القائمة أعلاه وضعه بالخط العريض في ردك.
+4. عدّل اقتراحاتك لتبقى ملتزمة تمامًا بالأساليب المعتمدة من GSK.
 
-            الرجاء الرد باللغة العربية فقط، وكن محددًا وعمليًا.
-        """
+الرجاء الرد باللغة العربية فقط، وكن محددًا وعمليًا.
+"""
     }
 }
 
@@ -101,19 +115,23 @@ st.markdown(t["description"])
 segment = st.selectbox(t["select_segment"], t["segments"])
 behavior = st.selectbox(t["select_behavior"], t["behaviors"])
 objective = st.selectbox(t["select_objective"], t["objectives"])
+brand = st.selectbox(t["select_brand"], list(gsk_brands.keys()))
 
-# Include the GSK brand name
-brand = "Augmentin"
+# Show approved selling approaches
+st.subheader(t["approved_approaches"])
+for a in gsk_approaches:
+    st.write(f"- {a}")
 
+# Generate AI suggestions
 if st.button(t["generate"]):
     with st.spinner(t["loading"]):
-        modules_str = "\n".join(gsk_approaches)
+        approaches_str = "\n".join(gsk_approaches)
         prompt = t["user_prompt"].format(
             segment=segment,
             behavior=behavior,
             objective=objective,
             brand=brand,
-            approaches=modules_str
+            approaches=approaches_str
         )
 
         response = client.chat.completions.create(
@@ -128,3 +146,6 @@ if st.button(t["generate"]):
         ai_output = response.choices[0].message.content
         st.subheader(t["result_title"])
         st.markdown(ai_output)
+
+        # Add PIL link
+        st.markdown(f"[{t['leaflet']} - {brand}]({gsk_brands[brand]})")
