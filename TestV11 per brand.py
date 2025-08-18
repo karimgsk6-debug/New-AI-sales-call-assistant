@@ -1,13 +1,12 @@
 import streamlit as st
-from st_audiorec import st_audiorec
-import tempfile
+from streamlit_mic_recorder import mic_recorder
 from groq import Groq
 from gtts import gTTS
 import base64
 import os
 
 # --- Initialize Groq client ---
-client = Groq(api_key="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")
+client = Groq(api_key=st.secrets["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"])
 
 # --- Language filter ---
 language = st.radio("🌐 Select Language / اختر اللغة", ["English", "العربية"])
