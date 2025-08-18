@@ -30,7 +30,7 @@ translations = {
             - Behavior: {behavior}
             - Visit Objective: {objective}
 
-            Suggest the following:
+            Suggest the following for the GSK Brand Augmentin:
             1. Three probing questions the rep should ask the doctor.
             2. Recommended communication style for this profile.
             3. Most suitable sales module.
