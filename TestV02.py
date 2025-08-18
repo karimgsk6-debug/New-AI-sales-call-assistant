@@ -2,7 +2,7 @@ import streamlit as st
 import groq
 from groq import Groq
 
-client = Groq(api_key="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")  # Add your API key here
+client = Groq(api_key="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")  # Add your API key here
 
 # Language Selection
 language = st.selectbox("🌐 Select Language / اختر اللغة:", ["English", "العربية"])
