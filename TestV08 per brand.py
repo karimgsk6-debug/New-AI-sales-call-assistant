@@ -24,7 +24,7 @@ gsk_brands = {
 
 gsk_brands_images = {
     "Augmentin": "images/augmentin.png",  # local or URL
-    "Shingrix": "images/shingrix.png",
+    "Shingrix": "https://share.google/images/7MZD7lEPKy5hk0SMO",
     "Seretide": "images/seretide.png",
 }
 
