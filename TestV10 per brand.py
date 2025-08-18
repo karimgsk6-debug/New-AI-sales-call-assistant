@@ -11,14 +11,23 @@ client = Groq(api_key="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"
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+
+# --- Language selector ---
+language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
+
 # --- GSK brand mappings ---
 gsk_brands = {
     "Augmentin": "https://example.com/augmentin-leaflet",
     "Shingrix": "https://example.com/shingrix-leaflet",
     "Seretide": "https://example.com/seretide-leaflet",
 }
-# --- Language selector ---
-language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
+
+# --- Brand logos (mix of local and URL) ---
+gsk_brands_images = {
+    "Augmentin": "images/augmentin.png",  
+    "Shingrix": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Shingrix_logo.png/320px-Shingrix_logo.png",  # URL logo
+    "Seretide": "images/seretide.png",
+}
 
 # --- Example filters ---
 segments = ["Evidence-Seeker", "Skeptic", "Relationship-Oriented"]
