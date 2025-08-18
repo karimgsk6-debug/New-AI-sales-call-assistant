@@ -17,9 +17,9 @@ language = st.radio("Select Language / اختر اللغة", options=["English",
 
 # --- GSK brand mappings ---
 gsk_brands = {
-    "Augmentin": "https://www.bloompharmacy.com/cdn/shop/products/augmentin-1-gm-14-tablets-145727.jpg?v=1687635056"
-    "Shingrix": "https://shop.dicksonchemist.co.uk/wp-content/uploads/2023/10/shingrix.png"
-    "Seretide": "https://pharmacareonline.qa/cdn/shop/products/SERETIDEDISKUS500.jpg?v=1675325654"
+    "Augmentin": ""
+    "Shingrix": ""
+    "Seretide": ""
 }
 
 gsk_brands_images = {
