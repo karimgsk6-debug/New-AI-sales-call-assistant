@@ -3,15 +3,20 @@ import os
 from groq import Groq
 
 # Initialize Groq client with your API key
-client = Groq(
-    api_key="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",)
+client = Groq(api_key="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",)
 
 # Define GSK brands with links to public PILs
 gsk_brands = {
+    "Shingrix": "https://www.medicines.org.uk/emc/product/12555/pil",
     "Augmentin": "https://www.medicines.org.uk/emc/product/1112/pil",
-    "Ventolin": "https://www.medicines.org.uk/emc/product/761/pil",
     "Seretide": "https://www.medicines.org.uk/emc/product/76/pil",
-    "Avodart": "https://www.medicines.org.uk/emc/product/4189/pil"
+}
+
+# Brand images (replace URLs with official GSK images or local files)
+brand_images = {
+    "Shingrix": "https://www.gsk.com/media/11255/shingrix.png",
+    "Augmentin": "https://www.gsk.com/media/1112/augmentin.png",
+    "Seretide": "https://www.gsk.com/media/76/seretide.png"
 }
 
 # Approved GSK Sales Approaches
@@ -57,6 +62,23 @@ Based on:
 Use the official GSK Selling Approaches as your framework:
 {approaches}
 
+Brand-specific guidance:
+- If the brand is **Shingrix**, focus on:
+  * Herpes Zoster risk and disease burden
+  * Vaccine efficacy and immunization schedules
+  * Patient eligibility and safety profile
+  * Strategies to increase patient adherence
+- If the brand is **Augmentin**, focus on:
+  * Antibiotic spectrum and efficacy
+  * Clinical indications and treatment guidelines
+  * Safety and tolerability
+  * Patient adherence and counseling
+- If the brand is **Seretide**, focus on:
+  * Asthma/COPD management
+  * Inhaler technique and adherence
+  * Clinical evidence and safety profile
+  * Individual patient optimization
+
 Your tasks:
 1. Suggest **three probing questions** aligned with the most relevant GSK selling approach.
 2. Recommend a **communication style** that matches the doctor’s profile and the chosen approach.
@@ -94,6 +116,23 @@ Be specific, concise, and practical.
 استخدم أساليب البيع المعتمدة من GSK كإطار عمل:
 {approaches}
 
+إرشادات مخصصة حسب المنتج:
+- إذا كان المنتج هو **Shingrix**، ركز على:
+  * خطر مرض القوباء المنطقية وعبء المرض
+  * فعالية اللقاح وجداول التطعيم
+  * أهلية المرضى والملف الأمني
+  * استراتيجيات لتعزيز التزام المرضى
+- إذا كان المنتج هو **Augmentin**، ركز على:
+  * نطاق المضاد الحيوي وفعاليته
+  * المؤشرات السريرية وإرشادات العلاج
+  * السلامة والتحمل
+  * التزام المرضى والتثقيف
+- إذا كان المنتج هو **Seretide**، ركز على:
+  * إدارة الربو وCOPD
+  * طريقة استخدام الجهاز واتباع العلاج
+  * الأدلة السريرية والملف الأمني
+  * تحسين العلاج حسب حالة المريض
+
 المطلوب:
 1. اقترح **ثلاثة أسئلة استكشافية** مرتبطة بأسلوب البيع الأنسب.
 2. أوصِ بـ **أسلوب التواصل** الأنسب الذي يتماشى مع ملف الطبيب والأسلوب المختار.
@@ -116,6 +155,10 @@ segment = st.selectbox(t["select_segment"], t["segments"])
 behavior = st.selectbox(t["select_behavior"], t["behaviors"])
 objective = st.selectbox(t["select_objective"], t["objectives"])
 brand = st.selectbox(t["select_brand"], list(gsk_brands.keys()))
+
+# Display brand image
+if brand in brand_images:
+    st.image(brand_images[brand], width=150)
 
 # Show approved selling approaches
 st.subheader(t["approved_approaches"])
