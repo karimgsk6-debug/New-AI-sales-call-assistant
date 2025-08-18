@@ -1,3 +1,4 @@
+
 import streamlit as st
 from PIL import Image
 import groq
@@ -10,12 +11,34 @@ client = Groq(api_key="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"
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- Page title and brand image ---
+# --- Example brand mappings ---
+gsk_brands = {
+    "Brand A": "https://example.com/brand-a-leaflet",
+    "Brand B": "https://example.com/brand-b-leaflet",
+    "Brand C": "https://example.com/brand-c-leaflet",
+}
+
+gsk_brands_images = {
+    "Brand A": "images/brand_a.png",
+    "Brand B": "images/brand_b.png",
+    "Brand C": "images/brand_c.png",
+}
+
+# --- Example segments, behaviors, objectives, and approaches ---
+segments = ["Evidence-Seeker", "Skeptic", "Relationship-Oriented"]
+behaviors = ["Scientific", "Emotional", "Logical"]
+objectives = ["Awareness", "Adoption", "Retention"]
+gsk_approaches = [
+    "Use data-driven evidence",
+    "Focus on patient outcomes",
+    "Leverage storytelling techniques",
+]
+
+# --- Page layout ---
 st.title("🧠 AI Sales Call Assistant")
 brand = st.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
-st.image(Image.open(gsk_brands_images[brand]), width=200)  # your brand images mapping
+st.image(Image.open(gsk_brands_images[brand]), width=200)
 
-# --- Inputs ---
 segment = st.selectbox("Select Segment / اختر الشريحة", segments)
 behavior = st.selectbox("Select Behavior / اختر السلوك", behaviors)
 objective = st.selectbox("Select Objective / اختر الهدف", objectives)
@@ -35,7 +58,7 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         st.session_state.chat_history.append({"role": "user", "content": user_input})
 
         # Prepare dynamic GSK approaches context
-        approaches_str = "\n".join(gsk_approaches)  # still pulling from your approved list
+        approaches_str = "\n".join(gsk_approaches)
 
         # Build AI prompt
         prompt = f"""
@@ -106,5 +129,5 @@ with chat_container:
                 unsafe_allow_html=True
             )
 
-# --- PIL link below chat ---
-st.markdown(f"[{t['leaflet']} - {brand}]({gsk_brands[brand]})")
+# --- Leaflet link below chat ---
+st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
