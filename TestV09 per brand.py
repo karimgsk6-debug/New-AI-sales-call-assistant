@@ -7,7 +7,12 @@ from groq import Groq
 
 # --- Initialize Groq client ---
 client = Groq(api_key="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")
-
+# --- GSK brand mappings ---
+gsk_brands = {
+    "Augmentin": "https://example.com/augmentin-leaflet",
+    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Seretide": "https://example.com/seretide-leaflet",
+}
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
