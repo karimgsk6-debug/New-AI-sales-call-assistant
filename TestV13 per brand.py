@@ -2,11 +2,11 @@ import streamlit as st
 from PIL import Image
 import requests
 from io import BytesIO
-from st_audiorec import st_audiorec
+import groq
 from groq import Groq
 
 # --- Initialize Groq client ---
-client = Groq(api_key=st.secrets["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"])
+client = Groq(api_key="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")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
@@ -22,16 +22,20 @@ gsk_brands = {
     "Seretide": "https://example.com/seretide-leaflet",
 }
 
+# --- Brand logos (mix of local and URL) ---
+gsk_brands_images = {
+    "Augmentin": "images/augmentin.png",  
+    "Shingrix": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Shingrix_logo.png/320px-Shingrix_logo.png",  # URL logo
+    "Seretide": "images/seretide.png",
+}
+
 # --- Example filters ---
 segments = ["Evidence-Seeker", "Skeptic", "Relationship-Oriented"]
 behaviors = ["Scientific", "Emotional", "Logical"]
 objectives = ["Awareness", "Adoption", "Retention"]
-specialties = [
-    "General Practitioner", "Cardiologist", "Dermatologist",
-    "Endocrinologist", "Pulmonologist"
-]
+specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
 
-# Approved sales approaches
+# Approved sales approaches (replace with your official list)
 gsk_approaches = [
     "Use data-driven evidence",
     "Focus on patient outcomes",
@@ -41,6 +45,19 @@ gsk_approaches = [
 # --- Page layout ---
 st.title("🧠 AI Sales Call Assistant")
 brand = st.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
+
+# --- Load brand image safely ---
+image_path = gsk_brands_images.get(brand)
+try:
+    if image_path.startswith("http"):  # Load from URL
+        response = requests.get(image_path)
+        img = Image.open(BytesIO(response.content))
+    else:  # Load local file
+        img = Image.open(image_path)
+    st.image(img, width=200)
+except Exception:
+    st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
+    st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
 # --- Inputs ---
 segment = st.selectbox("Select Segment / اختر الشريحة", segments)
@@ -55,35 +72,10 @@ if st.button("🗑️ Clear Chat / مسح المحادثة"):
 # --- Chat container ---
 chat_container = st.container()
 
-# --- 🎤 Voice Recorder ---
-st.markdown("### 🎤 Speak or type your message")
-audio_data = st_audiorec()
-
-user_input = ""
-
-# If audio recorded, send to Groq Whisper
-if audio_data is not None:
-    st.audio(audio_data, format="audio/wav")
-    with open("temp.wav", "wb") as f:
-        f.write(audio_data)
-
-    with st.spinner("🎙️ Transcribing audio..."):
-        with open("temp.wav", "rb") as f:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-large-v3",
-                file=f
-            )
-        user_input = transcript.text
-        st.success(f"Transcribed: {user_input}")
-
-# --- Text fallback ---
+# --- User message input ---
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
-typed_input = st.text_area(placeholder_text, key="typed_input", height=80)
+user_input = st.text_area(placeholder_text, key="user_input", height=80)
 
-if typed_input.strip():
-    user_input = typed_input
-
-# --- Send message ---
 if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
         # Append user input to chat history
@@ -109,7 +101,7 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
 
         # Call Groq API
         response = client.chat.completions.create(
-            model="llama-3.1-70b-versatile",  # faster & good for reasoning
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
                 {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
                 {"role": "user", "content": prompt}
@@ -164,4 +156,4 @@ with chat_container:
             )
 
 # --- Leaflet link below chat ---
-st.markdown(f"[📄 Brand Leaflet - {brand}]({gsk_brands[brand]})")
+st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
