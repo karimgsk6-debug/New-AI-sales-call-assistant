@@ -1,4 +1,3 @@
-
 import streamlit as st
 from PIL import Image
 import requests
@@ -13,18 +12,20 @@ client = Groq(api_key="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"
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- Example brand mappings (URLs or local paths) ---
+# --- Language selector ---
+language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
+
+# --- GSK brand mappings ---
 gsk_brands = {
-    "Brand A": "https://example.com/brand-a-leaflet",
-    "Brand B": "https://example.com/brand-b-leaflet",
-    "Brand C": "https://example.com/brand-c-leaflet",
+    "Augmentin": "https://example.com/augmentin-leaflet",
+    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Seretide": "https://example.com/seretide-leaflet",
 }
 
 gsk_brands_images = {
-    # You can use local files or URLs
-    "Brand A": "images/brand_a.png",  # local file
-    "Brand B": "https://via.placeholder.com/200x100.png?text=Brand+B",  # URL
-    "Brand C": "images/brand_c.png",  # local file
+    "Augmentin": "images/augmentin.png",  # local or URL
+    "Shingrix": "images/shingrix.png",
+    "Seretide": "images/seretide.png",
 }
 
 # --- Example segments, behaviors, objectives, and approaches ---
@@ -39,24 +40,33 @@ gsk_approaches = [
 
 # --- Page layout ---
 st.title("🧠 AI Sales Call Assistant")
-brand = st.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
+brand = st.selectbox(
+    "Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys())
+)
 
 # --- Load brand image safely ---
 image_path = gsk_brands_images.get(brand)
 try:
-    if image_path.startswith("http"):  # URL
+    if image_path.startswith("http"):
         response = requests.get(image_path)
         img = Image.open(BytesIO(response.content))
-    else:  # Local file
+    else:
         img = Image.open(image_path)
     st.image(img, width=200)
-except Exception as e:
+except Exception:
     st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
     st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
-segment = st.selectbox("Select Segment / اختر الشريحة", segments)
-behavior = st.selectbox("Select Behavior / اختر السلوك", behaviors)
-objective = st.selectbox("Select Objective / اختر الهدف", objectives)
+# --- Inputs ---
+segment = st.selectbox(
+    "Select Segment / اختر الشريحة", segments
+)
+behavior = st.selectbox(
+    "Select Behavior / اختر السلوك", behaviors
+)
+objective = st.selectbox(
+    "Select Objective / اختر الهدف", objectives
+)
 
 # --- Clear chat button ---
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
@@ -66,7 +76,9 @@ if st.button("🗑️ Clear Chat / مسح المحادثة"):
 chat_container = st.container()
 
 # --- User message input ---
-user_input = st.text_area("Your Message / رسالتك", key="user_input", height=80)
+placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
+user_input = st.text_area(placeholder_text, key="user_input", height=80)
+
 if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
         # Append user input to chat history
@@ -75,8 +87,9 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         # Prepare dynamic GSK approaches context
         approaches_str = "\n".join(gsk_approaches)
 
-        # Build AI prompt
+        # Build AI prompt with language context
         prompt = f"""
+        Language: {language}
         You are an expert GSK sales assistant. 
         User input: {user_input}
         Segment: {segment}
@@ -92,7 +105,7 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
-                {"role": "system", "content": "You are a helpful sales assistant chatbot."},
+                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7
