@@ -1,6 +1,8 @@
 
 import streamlit as st
 from PIL import Image
+import requests
+from io import BytesIO
 import groq
 from groq import Groq
 
@@ -11,7 +13,7 @@ client = Groq(api_key="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"
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- Example brand mappings ---
+# --- Example brand mappings (URLs or local paths) ---
 gsk_brands = {
     "Brand A": "https://example.com/brand-a-leaflet",
     "Brand B": "https://example.com/brand-b-leaflet",
@@ -19,9 +21,10 @@ gsk_brands = {
 }
 
 gsk_brands_images = {
-    "Brand A": "images/brand_a.png",
-    "Brand B": "images/brand_b.png",
-    "Brand C": "images/brand_c.png",
+    # You can use local files or URLs
+    "Brand A": "images/brand_a.png",  # local file
+    "Brand B": "https://via.placeholder.com/200x100.png?text=Brand+B",  # URL
+    "Brand C": "images/brand_c.png",  # local file
 }
 
 # --- Example segments, behaviors, objectives, and approaches ---
@@ -37,7 +40,19 @@ gsk_approaches = [
 # --- Page layout ---
 st.title("🧠 AI Sales Call Assistant")
 brand = st.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
-st.image(Image.open(gsk_brands_images[brand]), width=200)
+
+# --- Load brand image safely ---
+image_path = gsk_brands_images.get(brand)
+try:
+    if image_path.startswith("http"):  # URL
+        response = requests.get(image_path)
+        img = Image.open(BytesIO(response.content))
+    else:  # Local file
+        img = Image.open(image_path)
+    st.image(img, width=200)
+except Exception as e:
+    st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
+    st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
 segment = st.selectbox("Select Segment / اختر الشريحة", segments)
 behavior = st.selectbox("Select Behavior / اختر السلوك", behaviors)
