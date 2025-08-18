@@ -12,7 +12,7 @@ gsk_brands = {
     "Seretide": "https://www.medicines.org.uk/emc/product/76/pil",
 }
 
-# Brand images (replace with official GSK images or local files)
+# Brand images
 brand_images = {
     "Shingrix": "https://www.gsk.com/media/11255/shingrix.png",
     "Augmentin": "https://www.gsk.com/media/1112/augmentin.png",
@@ -38,7 +38,7 @@ translations = {
         "select_behavior": "Select Doctor Behavior:",
         "select_objective": "Select Visit Objective:",
         "select_brand": "Select GSK Brand:",
-        "generate": "Generate AI Suggestions",
+        "send": "Send",
         "loading": "Generating recommendations...",
         "result_title": "🤖 AI Recommendations",
         "leaflet": "📄 Patient Information Leaflet",
@@ -92,7 +92,7 @@ Be specific, concise, and practical.
         "select_behavior": "اختر سلوك الطبيب:",
         "select_objective": "اختر هدف الزيارة:",
         "select_brand": "اختر منتج من GSK:",
-        "generate": "احصل على الاقتراحات",
+        "send": "أرسل",
         "loading": "جاري توليد الاقتراحات...",
         "result_title": "🤖 اقتراحات الذكاء الاصطناعي",
         "leaflet": "📄 النشرة الدوائية للمريض",
@@ -163,12 +163,21 @@ st.subheader(t["approved_approaches"])
 for a in gsk_approaches:
     st.write(f"- {a}")
 
-# Chat history container
+# --- Initialize session state for chat ---
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# Chat container
 chat_container = st.container()
 
-# --- Generate AI Suggestions ---
-if st.button(t["generate"]):
+# --- User sends new message ---
+if st.button(t["send"]):
     with st.spinner(t["loading"]):
+        # Store user message
+        user_message = f"Segment: {segment}, Behavior: {behavior}, Objective: {objective}, Brand: {brand}"
+        st.session_state.chat_history.append({"role": "user", "content": user_message})
+
+        # Prepare prompt for AI
         approaches_str = "\n".join(gsk_approaches)
         prompt = t["user_prompt"].format(
             segment=segment,
@@ -188,10 +197,12 @@ if st.button(t["generate"]):
         )
 
         ai_output = response.choices[0].message.content
+        st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-        # Chat bubbles
-        with chat_container:
-            # User bubble
+# --- Display chat history ---
+with chat_container:
+    for msg in st.session_state.chat_history:
+        if msg["role"] == "user":
             st.markdown(
                 f"""
                 <div style="
@@ -205,17 +216,12 @@ if st.button(t["generate"]):
                     font-family:sans-serif;
                     white-space:pre-wrap;
                 ">
-                <strong>You:</strong><br>
-                Segment: {segment}<br>
-                Behavior: {behavior}<br>
-                Objective: {objective}<br>
-                Brand: {brand}
+                <strong>You:</strong><br>{msg['content']}
                 </div>
                 """,
                 unsafe_allow_html=True
             )
-
-            # AI bubble
+        else:
             st.markdown(
                 f"""
                 <div style="
@@ -230,12 +236,11 @@ if st.button(t["generate"]):
                     font-family:sans-serif;
                     white-space:pre-wrap;
                 ">
-                <strong>AI:</strong><br>
-                {ai_output}
+                <strong>AI:</strong><br>{msg['content']}
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-        # PIL link
-        st.markdown(f"[{t['leaflet']} - {brand}]({gsk_brands[brand]})")
+# PIL link below chat
+st.markdown(f"[{t['leaflet']} - {brand}]({gsk_brands[brand]})")
