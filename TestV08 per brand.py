@@ -15,13 +15,11 @@ if "chat_history" not in st.session_state:
 # --- Language selector ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# --- GSK brand mappings ---
-gsk_brands = {
-    "Augmentin": ""
-    "Shingrix": ""
-    "Seretide": ""
+gsk_brands_images = {
+    "Augmentin": "images/augmentin.png",
+    "Shingrix": "https://example.com/shingrix-logo.png",  # Your Shingrix logo URL here
+    "Seretide": "images/seretide.png",
 }
-
 gsk_brands_images = {
     "Augmentin": "images/augmentin.png",  # local or URL
     "Shingrix": "https://hhmp.com.au/wp-content/uploads/2023/10/shingles-vaccine.jpg",
