@@ -1,5 +1,6 @@
 import streamlit as st
-from streamlit_mic_recorder import mic_recorder
+from st_audiorec import st_audiorec
+import tempfile
 from groq import Groq
 from gtts import gTTS
 import base64
