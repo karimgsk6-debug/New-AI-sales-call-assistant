@@ -1,11 +1,12 @@
 import streamlit as st
 from st_audiorec import st_audiorec
-import base64
-import io
 from groq import Groq
+import base64
+import tempfile
+import os
 
 # --- Initialize Groq client ---
-client = Groq(api_key=st.secrets["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"])
+client = Groq(api_key="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")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
@@ -14,7 +15,7 @@ if "chat_history" not in st.session_state:
 # --- Language selector ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# --- GSK brand mappings (leaflet links only) ---
+# --- GSK brand mappings ---
 gsk_brands = {
     "Augmentin": "https://example.com/augmentin-leaflet",
     "Shingrix": "https://example.com/shingrix-leaflet",
@@ -51,44 +52,35 @@ if st.button("🗑️ Clear Chat / مسح المحادثة"):
 # --- Chat container ---
 chat_container = st.container()
 
-# --- User message input ---
+# --- Text input ---
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
 user_input = st.text_area(placeholder_text, key="user_input", height=80)
 
-# --- Voice recording ---
+# --- Voice input ---
+st.markdown("🎤 Or speak your message:")
 wav_audio_data = st_audiorec()
 
 if wav_audio_data is not None:
-    st.audio(wav_audio_data, format="audio/wav")
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+        tmpfile.write(wav_audio_data)
+        audio_file_path = tmpfile.name
 
-    # Convert audio bytes to base64
-    audio_base64 = base64.b64encode(wav_audio_data).decode("utf-8")
+    # Transcribe with Groq Whisper
+    with open(audio_file_path, "rb") as f:
+        transcription = client.audio.transcriptions.create(
+            model="whisper-large-v3",
+            file=f
+        )
+    user_input = transcription.text
+    st.success(f"🎙️ You said: {user_input}")
 
-    with st.spinner("🎤 Transcribing voice..."):
-        try:
-            # Send audio for transcription via Groq (Whisper model)
-            audio_file = io.BytesIO(wav_audio_data)
-            audio_file.name = "voice_input.wav"
-
-            transcript = client.audio.transcriptions.create(
-                model="whisper-large-v3",
-                file=audio_file
-            )
-            user_input = transcript.text
-            st.success(f"✅ Transcribed: {user_input}")
-        except Exception as e:
-            st.error(f"❌ Transcription error: {e}")
-
-# --- Send button ---
+# --- Handle send ---
 if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
-        # Append user input to chat history
         st.session_state.chat_history.append({"role": "user", "content": user_input})
 
-        # Prepare dynamic GSK approaches context
+        # Build context
         approaches_str = "\n".join(gsk_approaches)
-
-        # Build AI prompt
         prompt = f"""
         Language: {language}
         You are an expert GSK sales assistant. 
@@ -103,7 +95,7 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         Provide actionable suggestions in a friendly, professional tone.
         """
 
-        # Call Groq API (chat model)
+        # Call Groq LLM
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
@@ -115,6 +107,28 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
 
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
+
+        # --- TTS (AI voice output) ---
+        tts_response = client.audio.speech.create(
+            model="gpt-4o-mini-tts",
+            voice="alloy",  # Options: alloy, verse, etc.
+            input=ai_output
+        )
+
+        # Save & play audio
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmpfile:
+            tmpfile.write(tts_response.read())
+            audio_path = tmpfile.name
+
+        with open(audio_path, "rb") as audio_file:
+            audio_bytes = audio_file.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            audio_html = f"""
+            <audio autoplay controls>
+                <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+            </audio>
+            """
+            st.markdown(audio_html, unsafe_allow_html=True)
 
 # --- Display chat history ---
 with chat_container:
@@ -130,7 +144,6 @@ with chat_container:
                     border-radius:12px;
                     display:inline-block;
                     max-width:80%;
-                    font-family:sans-serif;
                     white-space:pre-wrap;
                 ">
                 <strong>You:</strong><br>{msg['content']}
@@ -150,7 +163,6 @@ with chat_container:
                     display:inline-block;
                     max-width:80%;
                     box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-                    font-family:sans-serif;
                     white-space:pre-wrap;
                 ">
                 <strong>AI:</strong><br>{msg['content']}
@@ -160,4 +172,4 @@ with chat_container:
             )
 
 # --- Leaflet link below chat ---
-st.markdown(f"[📄 Brand Leaflet - {brand}]({gsk_brands[brand]})")
+st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
