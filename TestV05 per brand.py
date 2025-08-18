@@ -4,7 +4,7 @@ from groq import Groq
 
 # Initialize Groq client with your API key
 client = Groq(
-    api_key="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",)
+    api_key="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",)
 
 # Define GSK brands with links to public PILs
 gsk_brands = {
