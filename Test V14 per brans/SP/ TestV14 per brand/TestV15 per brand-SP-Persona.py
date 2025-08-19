@@ -17,7 +17,7 @@ if "chat_history" not in st.session_state:
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
 # --- GSK logo (robust loading) ---
-logo_local_path = "images/gsk_logo.png"  # Local file path
+logo_local_path = "images/gsk_logo.png"
 logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
 
 col1, col2 = st.columns([1, 5])
@@ -37,7 +37,7 @@ gsk_brands = {
     "Seretide": "https://example.com/seretide-leaflet",
 }
 
-# --- Brand logos (mix of local and URL) ---
+# --- Brand logos ---
 gsk_brands_images = {
     "Augmentin": "https://www.bloompharmacy.com/cdn/shop/products/augmentin-1-gm-14-tablets-145727_600x600_crop_center.jpg?v=1687635056",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
@@ -84,7 +84,12 @@ gsk_approaches = [
 st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-barrier = st.sidebar.selectbox("Select Doctor Barrier / اختر حاجز الطبيب", doctor_barriers)
+# --- MULTISELECT for Doctor Barriers ---
+barrier = st.sidebar.multiselect(
+    "Select Doctor Barrier / اختر حاجز الطبيب",
+    options=doctor_barriers,
+    default=[]
+)
 objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
 specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
 persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
@@ -132,7 +137,7 @@ Language: {language}
 You are an expert GSK sales assistant. 
 User input: {user_input}
 RACE Segment: {segment}
-Doctor Barrier: {barrier}
+Doctor Barrier: {', '.join(barrier) if barrier else 'None'}
 Objective: {objective}
 Brand: {brand}
 Doctor Specialty: {specialty}
@@ -172,8 +177,8 @@ with chat_container:
         segments_list = ["Evidence-Seeker", "Skeptic", "Time-Pressured"]
         for seg in segments_list:
             with st.expander(f"{seg} Segment"):
-                st.write(f"Suggested approach for {seg} with {', '.join(behavior)} behavior.")
-                st.progress(70)  # Example confidence
+                st.write(f"Suggested approach for {seg} with {', '.join(barrier) if barrier else 'None'} barriers selected.")
+                st.progress(70)
                 st.button(f"Next Suggestion for {seg}")
 
     elif interface_mode == "Flow Visualization":
@@ -181,7 +186,7 @@ with chat_container:
         html_content = f"""
         <div style='font-family:sans-serif; background:#f0f2f6; padding:20px; border-radius:10px;'>
             <h3>{persona} Segment</h3>
-            <p><b>Behavior:</b> {', '.join(behavior)}</p>
+            <p><b>Behavior:</b> {', '.join(barrier) if barrier else 'None'}</p>
             <p><b>Brand:</b> {brand}</p>
             <p><b>Tone:</b> {response_tone}</p>
             <p><b>AI Suggestion:</b> Example probing question or approach here...</p>
