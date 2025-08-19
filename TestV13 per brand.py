@@ -15,19 +15,19 @@ if "chat_history" not in st.session_state:
 # --- Language selector ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# --- GSK logo ---
-logo_path = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"  # Replace with your local path or URL
+# --- GSK logo (robust loading) ---
+logo_local_path = "images/gsk_logo.png"  # Local file path
+logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
+
 col1, col2 = st.columns([1, 5])
 with col1:
     try:
-        if logo_path.startswith("http"):
-            response = requests.get(logo_path)
-            logo_img = Image.open(BytesIO(response.content))
-        else:
-            logo_img = Image.open(logo_path)
+        # Try local image first
+        logo_img = Image.open(logo_local_path)
         st.image(logo_img, width=120)
     except Exception:
-        st.warning("⚠️ Could not load GSK logo.")
+        # Fallback to online image
+        st.image(logo_fallback_url, width=120)
 with col2:
     st.title("🧠 AI Sales Call Assistant")
 
