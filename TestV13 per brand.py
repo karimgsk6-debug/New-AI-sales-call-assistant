@@ -1,82 +1,87 @@
 import streamlit as st
 from groq import Groq
 
-# -------------------------------
-# API Key Safe Check
-# -------------------------------
+# -----------------------------
+# Secure Groq API key setup
+# -----------------------------
 if "GROQ_API_KEY" in st.secrets:
     client = Groq(api_key=st.secrets["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"])
 else:
-    st.error("🚨 Missing GROQ_API_KEY in Streamlit secrets. Please add it in `.streamlit/secrets.toml`")
+    st.error("🚨 Missing GROQ_API_KEY in Streamlit secrets.")
     client = None
 
-# -------------------------------
-# Streamlit UI
-# -------------------------------
-st.title("🧠 AI Sales Call Assistant")
-st.markdown("Prepare for HCP visits with AI-powered suggestions.")
+# -----------------------------
+# App Title
+# -----------------------------
+st.title("🧠 AI Sales Call Assistant – GSK")
+st.markdown("Prepare for HCP visits with AI-powered suggestions tailored by RACE segmentation, specialty, and brand.")
 
-# Segments (RACE Model for Shingrix)
-segments = {
-    "Reach": "Did not start to prescribe yet. Don't believe vaccination is their responsibility.",
-    "Acquisition": "Prescribe to patients who initiate discussion about the vaccine. Convinced about Shingrix data.",
-    "Conversion": "Proactively initiate discussion with specific patient profiles. For other profiles, not prescribing yet.",
-    "Engagement": "Proactively prescribe to different patient profiles."
-}
+# -----------------------------
+# RACE Segmentation
+# -----------------------------
+st.subheader("🎯 Select RACE Segmentation")
+st.markdown("""
+**RACE Definitions**  
+- **R (Relationship Seeker):** Values trust and partnership, prefers collaborative discussions.  
+- **A (Active Supporter):** Engaged, already positive toward the brand, seeks tools and reinforcement.  
+- **C (Challenger):** Questions data, skeptical, requires strong evidence and logic.  
+- **E (Evidence Seeker):** Focused on clinical proof, guidelines, and trial outcomes.  
+""")
 
-behaviors = ["Evidence-Seeker", "Skeptic", "Time-Pressured", "Relationship-Oriented"]
-objectives = ["Awareness", "Education", "Conversion", "Retention"]
+race_segments = ["Relationship Seeker (R)", "Active Supporter (A)", "Challenger (C)", "Evidence Seeker (E)"]
+race_segment = st.selectbox("Choose RACE Segment", options=race_segments)
 
-# -------------------------------
-# Input Options
-# -------------------------------
-st.subheader("🔹 Select Customer Profile")
+# -----------------------------
+# Doctor Specialty
+# -----------------------------
+st.subheader("👨‍⚕️ Select Doctor Specialty")
+specialties = ["General Practitioner", "Dermatologist", "Pulmonologist", "Cardiologist", "Other"]
+specialty = st.selectbox("Choose Specialty", options=specialties)
 
-segment = st.selectbox("Choose RACE Segment", list(segments.keys()))
-behavior = st.selectbox("Choose Behavior Type", behaviors)
-objective = st.selectbox("Choose Call Objective", objectives)
+# -----------------------------
+# Brand Selection
+# -----------------------------
+st.subheader("💊 Select Brand")
+brands = ["Augmentin", "Shingrix", "Seretide"]
+brand = st.selectbox("Choose Brand", options=brands)
 
-# -------------------------------
-# Generate Suggestions
-# -------------------------------
-if st.button("💡 Generate Call Guidance"):
+# -----------------------------
+# Sales Objective
+# -----------------------------
+st.subheader("🎯 Define Sales Objective")
+objectives = [
+    "Raise awareness",
+    "Address objections",
+    "Reinforce brand value",
+    "Encourage trial/adoption",
+    "Support adherence"
+]
+objective = st.selectbox("Choose Objective", options=objectives)
+
+# -----------------------------
+# Generate AI Suggestion
+# -----------------------------
+if st.button("✨ Generate Sales Call Suggestion"):
     if client:
         prompt = f"""
-        You are an AI assistant for pharmaceutical sales reps.
-        The rep is preparing for a doctor visit.
+        You are an AI assistant helping a pharma sales rep prepare for a doctor visit. 
+        Doctor Segment: {race_segment}  
+        Specialty: {specialty}  
+        Brand: {brand}  
+        Objective: {objective}  
 
-        Segment (RACE Model): {segment} → {segments[segment]}
-        Behavior Type: {behavior}
-        Call Objective: {objective}
-
-        Task: 
-        - Suggest tailored probing questions
-        - Recommend communication style
-        - Suggest the most relevant GSK-approved selling module
+        Provide probing questions, tailored communication style, and a suggested sales call flow 
+        following GSK’s approved selling approaches.
         """
-
         try:
             response = client.chat.completions.create(
-                model="llama-3.1-8b-instant",
+                model="llama3-8b-8192",
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.6,
-                max_tokens=400
+                temperature=0.7
             )
-            answer = response.choices[0].message.content
-            st.success("✅ Suggested Call Guidance")
-            st.write(answer)
+            st.success("✅ Suggestion Generated!")
+            st.write(response.choices[0].message["content"])
         except Exception as e:
-            st.error(f"Error generating response: {e}")
+            st.error(f"❌ Error generating response: {e}")
     else:
-        st.warning("⚠️ Cannot generate guidance because API key is missing.")
-
-# -------------------------------
-# RACE Segmentation Reference
-# -------------------------------
-with st.expander("📌 RACE Segmentation Reference"):
-    st.markdown("""
-    **R – Reach**: Did not start prescribing yet, don’t believe vaccination is their responsibility.  
-    **A – Acquisition**: Prescribe to patients who initiate discussion, convinced about Shingrix data.  
-    **C – Conversion**: Proactively initiate discussion with specific patient profiles, but not prescribing for all.  
-    **E – Engagement**: Proactively prescribe to different patient profiles.  
-    """)
+        st.warning("⚠️ API client not initialized. Please check your secrets.")
