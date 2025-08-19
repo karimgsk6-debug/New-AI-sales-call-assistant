@@ -24,7 +24,7 @@ gsk_brands = {
 
 # --- Brand logos (mix of local and URL) ---
 gsk_brands_images = {
-    "Augmentin": "https://tovpet.com/cdn/shop/products/16038589266422789.png?v=1736934091",
+    "Augmentin": "https://www.bloompharmacy.com/cdn/shop/products/augmentin-1-gm-14-tablets-145727_600x600_crop_center.jpg?v=1687635056",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
     "Seretide": "images/seretide.png",
 }
