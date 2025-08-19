@@ -31,10 +31,10 @@ gsk_brands_images = {
 
 # --- RACE Segmentation (cleaned) ---
 race_segments = [
-    "R – Relationship Oriented: Focuses on building trust and personal connection.",
-    "A – Active Prescriber: Already prescribing, open to increasing usage with right support.",
-    "C – Conservative: Cautious, prefers established treatments, resistant to change.",
-    "E – Evidence Seeker: Requires strong data, guidelines, and scientific evidence."
+    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
+    "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine and Convinced about Shingrix data..",
+    "C – Conversion: Proactively initiate discussion with specific patient profile while For other patient profiles, he is not prescribing yet.",
+    "E – Engagement: Proactively prescribe to different patient profiles."
 ]
 
 # --- Other filters ---
