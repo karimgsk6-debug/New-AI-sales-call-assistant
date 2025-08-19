@@ -22,11 +22,9 @@ logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05
 col1, col2 = st.columns([1, 5])
 with col1:
     try:
-        # Try local image first
         logo_img = Image.open(logo_local_path)
         st.image(logo_img, width=120)
     except Exception:
-        # Fallback to online image
         st.image(logo_fallback_url, width=120)
 with col2:
     st.title("🧠 AI Sales Call Assistant")
@@ -95,6 +93,13 @@ barrier = st.selectbox("Select Doctor Barrier / اختر حاجز الطبيب",
 objective = st.selectbox("Select Objective / اختر الهدف", objectives)
 specialty = st.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
 
+# --- AI Response Customization ---
+response_length_options = ["Short", "Medium", "Long"]
+response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
+
+response_length = st.selectbox("Select Response Length / اختر طول الرد", response_length_options)
+response_tone = st.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options)
+
 # --- Clear chat button ---
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
@@ -113,7 +118,7 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         # Prepare dynamic GSK approaches context
         approaches_str = "\n".join(gsk_approaches)
 
-        # Build AI prompt with Doctor Barrier
+        # Build AI prompt with Doctor Barrier, Tone, and Length
         prompt = f"""
 Language: {language}
 You are an expert GSK sales assistant. 
@@ -125,7 +130,9 @@ Brand: {brand}
 Doctor Specialty: {specialty}
 Approved GSK Sales Approaches:
 {approaches_str}
-Provide actionable suggestions in a friendly, professional tone.
+Response Length: {response_length}
+Response Tone: {response_tone}
+Provide actionable suggestions following the selected length and tone, in a friendly and professional manner.
 """
 
         # Call Groq API
