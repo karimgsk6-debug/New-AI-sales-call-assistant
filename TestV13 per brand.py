@@ -23,9 +23,9 @@ col1, col2 = st.columns([1, 5])
 with col1:
     try:
         logo_img = Image.open(logo_local_path)
-        st.image(logo_img, width=120)
+        st.image(logo_img, width=160)
     except Exception:
-        st.image(logo_fallback_url, width=120)
+        st.image(logo_fallback_url, width=160)
 with col2:
     st.title("🧠 AI Sales Call Assistant")
 
