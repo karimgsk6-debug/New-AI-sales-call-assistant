@@ -58,7 +58,11 @@ gsk_approaches = [
 ]
 
 # --- Page layout ---
-st.title("🧠 AI Sales Call Assistant")
+col1, col2 = st.columns([1, 5])
+with col1:
+    st.image("images/gsk_logo.png", width=100)
+with col2:
+    st.title("🧠 AI Sales Call Assistant")
 brand = st.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
 
 # --- Load brand image safely ---
