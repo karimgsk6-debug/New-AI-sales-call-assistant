@@ -25,7 +25,7 @@ gsk_brands = {
 # --- Brand logos (mix of local and URL) ---
 gsk_brands_images = {
     "Augmentin": "images/augmentin.png",
-    "Shingrix": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Shingrix_logo.png/320px-Shingrix_logo.png",
+    "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
     "Seretide": "images/seretide.png",
 }
 
