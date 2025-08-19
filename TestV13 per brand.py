@@ -14,7 +14,7 @@ else:
 # App Title
 # -----------------------------
 st.title("🧠 AI Sales Call Assistant – GSK")
-st.markdown("Prepare for HCP visits with AI-powered suggestions tailored by RACE segmentation, specialty, and brand.")
+st.markdown("Prepare for HCP visits with AI-powered suggestions tailored by **RACE segmentation**, specialty, and brand.")
 
 # -----------------------------
 # RACE Segmentation
@@ -22,13 +22,18 @@ st.markdown("Prepare for HCP visits with AI-powered suggestions tailored by RACE
 st.subheader("🎯 Select RACE Segmentation")
 st.markdown("""
 **RACE Definitions**  
-- **R (Relationship Seeker):** Values trust and partnership, prefers collaborative discussions.  
-- **A (Active Supporter):** Engaged, already positive toward the brand, seeks tools and reinforcement.  
-- **C (Challenger):** Questions data, skeptical, requires strong evidence and logic.  
-- **E (Evidence Seeker):** Focused on clinical proof, guidelines, and trial outcomes.  
+- 🟢 **R (Relationship Seeker):** Values trust and partnership, prefers collaborative discussions.  
+- 🔵 **A (Active Supporter):** Engaged, already positive toward the brand, seeks tools and reinforcement.  
+- 🟠 **C (Challenger):** Questions data, skeptical, requires strong evidence and logic.  
+- 🟣 **E (Evidence Seeker):** Focused on clinical proof, guidelines, and trial outcomes.  
 """)
 
-race_segments = ["Relationship Seeker (R)", "Active Supporter (A)", "Challenger (C)", "Evidence Seeker (E)"]
+race_segments = [
+    "Relationship Seeker (R)",
+    "Active Supporter (A)",
+    "Challenger (C)",
+    "Evidence Seeker (E)"
+]
 race_segment = st.selectbox("Choose RACE Segment", options=race_segments)
 
 # -----------------------------
@@ -59,6 +64,16 @@ objectives = [
 objective = st.selectbox("Choose Objective", options=objectives)
 
 # -----------------------------
+# Chat Display Function
+# -----------------------------
+def display_chat(user_message, ai_message):
+    with st.chat_message("user"):
+        st.markdown(user_message)
+
+    with st.chat_message("assistant"):
+        st.markdown(ai_message)
+
+# -----------------------------
 # Generate AI Suggestion
 # -----------------------------
 if st.button("✨ Generate Sales Call Suggestion"):
@@ -79,8 +94,8 @@ if st.button("✨ Generate Sales Call Suggestion"):
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.7
             )
-            st.success("✅ Suggestion Generated!")
-            st.write(response.choices[0].message["content"])
+            ai_reply = response.choices[0].message["content"]
+            display_chat(prompt, ai_reply)
         except Exception as e:
             st.error(f"❌ Error generating response: {e}")
     else:
