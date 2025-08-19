@@ -29,16 +29,24 @@ gsk_brands_images = {
     "Seretide": "images/seretide.png",
 }
 
-# --- RACE Segmentation (cleaned) ---
+# --- RACE Segmentation ---
 race_segments = [
-    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
-    "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine and Convinced about Shingrix data..",
-    "C – Conversion: Proactively initiate discussion with specific patient profile while For other patient profiles, he is not prescribing yet.",
-    "E – Engagement: Proactively prescribe to different patient profiles."
+    "R – Relationship Oriented: Focuses on building trust and personal connection.",
+    "A – Active Prescriber: Already prescribing, open to increasing usage with right support.",
+    "C – Conservative: Cautious, prefers established treatments, resistant to change.",
+    "E – Evidence Seeker: Requires strong data, guidelines, and scientific evidence."
+]
+
+# --- Doctor Barriers ---
+doctor_barriers = [
+    "1 - HCP does not consider HZ as risk for the selected patient profile",
+    "2 - HCP thinks there is no time to discuss preventive measures with the patients",
+    "3 - HCP thinks about cost considerations",
+    "4 - HCP is not convinced that HZ Vx is effective in reducing the burden",
+    "5 - Accessibility (POVs)"
 ]
 
 # --- Other filters ---
-behaviors = ["Scientific", "Emotional", "Logical"]
 objectives = ["Awareness", "Adoption", "Retention"]
 specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
 
@@ -68,7 +76,7 @@ except Exception:
 
 # --- Inputs ---
 segment = st.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-behavior = st.selectbox("Select Behavior / اختر السلوك", behaviors)
+barrier = st.selectbox("Select Doctor Barrier / اختر حاجز الطبيب", doctor_barriers)
 objective = st.selectbox("Select Objective / اختر الهدف", objectives)
 specialty = st.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
 
@@ -90,13 +98,13 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         # Prepare dynamic GSK approaches context
         approaches_str = "\n".join(gsk_approaches)
 
-        # Build AI prompt
+        # Build AI prompt with Doctor Barrier
         prompt = f"""
 Language: {language}
 You are an expert GSK sales assistant. 
 User input: {user_input}
 RACE Segment: {segment}
-Behavior: {behavior}
+Doctor Barrier: {barrier}
 Objective: {objective}
 Brand: {brand}
 Doctor Specialty: {specialty}
