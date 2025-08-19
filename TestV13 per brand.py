@@ -16,7 +16,7 @@ if "chat_history" not in st.session_state:
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
 # --- GSK logo ---
-logo_path = "images/gsk_logo.png"  # Replace with your local path or URL
+logo_path = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"  # Replace with your local path or URL
 col1, col2 = st.columns([1, 5])
 with col1:
     try:
