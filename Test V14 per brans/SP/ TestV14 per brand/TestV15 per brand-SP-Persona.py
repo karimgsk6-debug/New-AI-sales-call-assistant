@@ -32,9 +32,9 @@ with col2:
 
 # --- GSK brand mappings ---
 gsk_brands = {
-    "Augmentin": "https://example.com/augmentin-leaflet",
-    "Shingrix": "https://assets.gskinternet.com/pharma/GSKpro/Saudi/shingrix/shingrix-pi.pdf",
-    "Seretide": "https://example.com/seretide-leaflet",
+    "Augmentin API": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/PDFs/pi.pdf",
+    "Shingrix API": "https://assets.gskinternet.com/pharma/GSKpro/Saudi/shingrix/shingrix-pi.pdf",
+    "Seretide API": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/Seretide/seretide_pi_205223.pdf",
 }
 
 # --- Brand logos ---
