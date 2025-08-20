@@ -13,13 +13,45 @@ client = Groq(api_key="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"
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+if "filters" not in st.session_state:
+    st.session_state.filters = {
+        "brand": None,
+        "segment": None,
+        "barrier": [],
+        "objective": None,
+        "specialty": None,
+        "persona": None,
+        "personal_type_exp": [],
+        "personal_type_comm": [],
+        "personal_type_mind": [],
+        "response_length": "Medium",
+        "response_tone": "Formal",
+        "interface_mode": "Chatbot"
+    }
+
+# --- Reset all selections ---
+def reset_selections():
+    st.session_state.filters = {
+        "brand": None,
+        "segment": None,
+        "barrier": [],
+        "objective": None,
+        "specialty": None,
+        "persona": None,
+        "personal_type_exp": [],
+        "personal_type_comm": [],
+        "personal_type_mind": [],
+        "response_length": "Medium",
+        "response_tone": "Formal",
+        "interface_mode": "Chatbot"
+    }
+
 # --- Language selector ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# --- GSK logo (robust loading) ---
+# --- GSK logo ---
 logo_local_path = "images/gsk_logo.png"
 logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
-
 col1, col2 = st.columns([1, 5])
 with col1:
     try:
@@ -30,29 +62,23 @@ with col1:
 with col2:
     st.title("🧠 AI Sales Call Assistant")
 
-# --- GSK brand mappings ---
+# --- Constants ---
 gsk_brands = {
     "Augmentin": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/PDFs/pi.pdf",
     "Shingrix": "https://assets.gskinternet.com/pharma/GSKpro/Saudi/shingrix/shingrix-pi.pdf",
     "Seretide": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/Seretide/seretide_pi_205223.pdf",
 }
-
-# --- Brand logos ---
 gsk_brands_images = {
     "Augmentin": "https://www.bloompharmacy.com/cdn/shop/products/augmentin-1-gm-14-tablets-145727_600x600_crop_center.jpg?v=1687635056",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
     "Seretide": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
 }
-
-# --- RACE Segmentation ---
 race_segments = [
     "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
     "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine but Convinced about Shingrix data.",
     "C – Conversion: Proactively initiate discussion with specific patient profile but For other patient profiles he is not prescribing yet.",
     "E – Engagement: Proactively prescribe to different patient profiles"
 ]
-
-# --- Doctor Barriers ---
 doctor_barriers = [
     "1 - HCP does not consider HZ as risk for the selected patient profile",
     "2 - HCP thinks there is no time to discuss preventive measures with the patients",
@@ -60,25 +86,17 @@ doctor_barriers = [
     "4 - HCP is not convinced that HZ Vx is effective in reducing the burden",
     "5 - Accessibility (POVs)"
 ]
-
-# --- Other filters ---
 objectives = ["Awareness", "Adoption", "Retention"]
 specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
-
-# --- HCP Personas (adoption-based) ---
 personas = [
     "Uncommitted Vaccinator – Not engaged, poor knowledge, least likely to prescribe vaccines (26%)",
     "Reluctant Efficiency – Do not see vaccinating 50+ as part of role, least likely to believe in impact (12%)",
     "Patient Influenced – Aware of benefits but prescribes only if patient requests (26%)",
     "Committed Vaccinator – Very positive, motivated, prioritizes vaccination & sets example (36%)"
 ]
-
-# --- NEW: Categorized HCP Personal Types ---
 personal_types_experience = ["Most Senior", "Junior"]
 personal_types_communication = ["Friendly", "Masked", "Open", "Reserved"]
 personal_types_mindset = ["Scientific", "Emotional", "Analytical", "Pragmatic"]
-
-# --- Approved sales approaches ---
 gsk_approaches = [
     "Use data-driven evidence",
     "Focus on patient outcomes",
@@ -87,31 +105,27 @@ gsk_approaches = [
 
 # --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
-brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
-segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
+if st.sidebar.button("🔄 Reset All Selections"):
+    reset_selections()
 
-barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
+brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()), index=0)
+segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
+barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers)
 objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
 specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
-
 persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
 
-# --- NEW: Grouped Personal Types ---
 st.sidebar.markdown("### HCP Personal Types / أنماط شخصية الطبيب")
 personal_type_exp = st.sidebar.multiselect("Experience Level / مستوى الخبرة", options=personal_types_experience)
 personal_type_comm = st.sidebar.multiselect("Communication Style / أسلوب التواصل", options=personal_types_communication)
 personal_type_mind = st.sidebar.multiselect("Mindset / التوجه الفكري", options=personal_types_mindset)
-
-# Merge all selected personal types
 personal_type = personal_type_exp + personal_type_comm + personal_type_mind
 
-# --- AI Response Customization ---
 response_length_options = ["Short", "Medium", "Long"]
 response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
 response_length = st.sidebar.selectbox("Select Response Length / اختر طول الرد", response_length_options)
 response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options)
 
-# --- Interface Mode ---
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
 # --- Chat history options ---
@@ -119,6 +133,14 @@ st.sidebar.subheader("💬 Chat History Options")
 if st.sidebar.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 recall_history = st.sidebar.checkbox("Show Previous History / عرض المحادثات السابقة", value=True)
+
+# --- Download chat history ---
+if st.sidebar.button("📥 Download Chat History"):
+    if st.session_state.chat_history:
+        history_text = "\n".join([f"{msg['role'].upper()}: {msg['content']}" for msg in st.session_state.chat_history])
+        st.download_button("Download TXT", history_text, file_name="chat_history.txt")
+    else:
+        st.warning("No chat history to download!")
 
 # --- Load brand image safely ---
 image_path = gsk_brands_images.get(brand)
@@ -142,9 +164,7 @@ user_input = st.text_area(placeholder_text, key="user_input", height=80)
 if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
         st.session_state.chat_history.append({"role": "user", "content": user_input})
-
         approaches_str = "\n".join(gsk_approaches)
-
         prompt = f"""
 Language: {language}
 You are an expert GSK sales assistant. 
@@ -169,7 +189,6 @@ Response Tone: {response_tone}
 Provide actionable suggestions tailored to this persona & personal type, 
 following the selected length and tone, in a friendly and professional manner.
 """
-
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
@@ -178,7 +197,6 @@ following the selected length and tone, in a friendly and professional manner.
             ],
             temperature=0.7
         )
-
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
