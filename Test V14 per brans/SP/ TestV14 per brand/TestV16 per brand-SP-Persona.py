@@ -6,7 +6,7 @@ import groq
 from groq import Groq
 
 # --- Initialize Groq client ---
-client = Groq(api_key="YOUR_API_KEY")
+client = Groq(api_key="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")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
