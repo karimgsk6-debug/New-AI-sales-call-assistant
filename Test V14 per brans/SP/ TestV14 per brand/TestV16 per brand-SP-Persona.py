@@ -75,7 +75,7 @@ personas = [
 
 # --- NEW: Categorized HCP Personal Types ---
 personal_types_experience = ["Most Senior", "Junior"]
-personal_types_communication = ["Friendly", "Masked"]
+personal_types_communication = ["Friendly", "Masked", "Open", "Reserved"]
 personal_types_mindset = ["Scientific", "Emotional", "Analytical", "Pragmatic"]
 
 # --- Approved sales approaches ---
@@ -90,22 +90,14 @@ st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
 
-# --- MULTISELECT for Doctor Barriers ---
-barrier = st.sidebar.multiselect(
-    "Select Doctor Barrier / اختر حاجز الطبيب",
-    options=doctor_barriers,
-    default=[]
-)
-
+barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
 objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
 specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
 
-# --- Existing Persona ---
 persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
 
 # --- NEW: Grouped Personal Types ---
 st.sidebar.markdown("### HCP Personal Types / أنماط شخصية الطبيب")
-
 personal_type_exp = st.sidebar.multiselect("Experience Level / مستوى الخبرة", options=personal_types_experience)
 personal_type_comm = st.sidebar.multiselect("Communication Style / أسلوب التواصل", options=personal_types_communication)
 personal_type_mind = st.sidebar.multiselect("Mindset / التوجه الفكري", options=personal_types_mindset)
@@ -122,6 +114,12 @@ response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة �
 # --- Interface Mode ---
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
+# --- Chat history options ---
+st.sidebar.subheader("💬 Chat History Options")
+if st.sidebar.button("🗑️ Clear Chat / مسح المحادثة"):
+    st.session_state.chat_history = []
+recall_history = st.sidebar.checkbox("Show Previous History / عرض المحادثات السابقة", value=True)
+
 # --- Load brand image safely ---
 image_path = gsk_brands_images.get(brand)
 try:
@@ -134,10 +132,6 @@ try:
 except Exception:
     st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
     st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
-
-# --- Clear chat button ---
-if st.button("🗑️ Clear Chat / مسح المحادثة"):
-    st.session_state.chat_history = []
 
 # --- Chat container ---
 chat_container = st.container()
@@ -176,7 +170,6 @@ Provide actionable suggestions tailored to this persona & personal type,
 following the selected length and tone, in a friendly and professional manner.
 """
 
-        # Call Groq API
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
@@ -193,11 +186,12 @@ following the selected length and tone, in a friendly and professional manner.
 with chat_container:
     if interface_mode == "Chatbot":
         st.subheader("💬 Chatbot Interface")
-        for msg in st.session_state.chat_history:
-            if msg["role"] == "user":
-                st.markdown(f"<div style='text-align:right; background:#d1e7dd; padding:10px; border-radius:12px; margin:10px 0;'>{msg['content']}</div>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"<div style='text-align:left; background:#f0f2f6; padding:15px; border-radius:12px; margin:10px 0; box-shadow:2px 2px 5px rgba(0,0,0,0.1);'>{msg['content']}</div>", unsafe_allow_html=True)
+        if recall_history:
+            for msg in st.session_state.chat_history:
+                if msg["role"] == "user":
+                    st.markdown(f"<div style='text-align:right; background:#d1e7dd; padding:10px; border-radius:12px; margin:10px 0;'>{msg['content']}</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<div style='text-align:left; background:#f0f2f6; padding:15px; border-radius:12px; margin:10px 0; box-shadow:2px 2px 5px rgba(0,0,0,0.1);'>{msg['content']}</div>", unsafe_allow_html=True)
 
     elif interface_mode == "Card Dashboard":
         st.subheader("📊 Card-Based Dashboard")
