@@ -7,7 +7,7 @@ from groq import Groq
 import streamlit.components.v1 as components
 
 # --- Initialize Groq client ---
-client = Groq(api_key="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")
+client = Groq(api_key="gsk_cCf4tlGySSjJiOkkvkb1WGdyb3FY4ODNtba4n8Gl2dBFJLtl")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
@@ -32,21 +32,21 @@ with col2:
 
 # --- GSK brand mappings ---
 gsk_brands = {
-    "Augmentin": "https://example.com/augmentin-leaflet",
+    "Trelegy": "https://example.com/trelegy-leaflet",
     "Shingrix": "https://example.com/shingrix-leaflet",
-    "Seretide": "https://example.com/seretide-leaflet",
+    "Zejula": "https://example.com/zejula-leaflet",
 }
 
 # --- Brand logos ---
 gsk_brands_images = {
-    "Augmentin": "https://www.bloompharmacy.com/cdn/shop/products/augmentin-1-gm-14-tablets-145727_600x600_crop_center.jpg?v=1687635056",
+    "Trelegy": "https://www.example.com/trelegy.png",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
-    "Seretide": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
+    "Zejula": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
 }
 
 # --- RACE Segmentation ---
 race_segments = [
-    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
+    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
     "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine but Convinced about Shingrix data.",
     "C – Conversion: Proactively initiate discussion with specific patient profile but For other patient profiles he is not prescribing yet.",
     "E – Engagement: Proactively prescribe to different patient profiles"
@@ -80,11 +80,13 @@ gsk_approaches = [
     "Leverage storytelling techniques",
 ]
 
+# --- Sales Call Flow ---
+sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
+
 # --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-# --- MULTISELECT for Doctor Barriers ---
 barrier = st.sidebar.multiselect(
     "Select Doctor Barrier / اختر حاجز الطبيب",
     options=doctor_barriers,
@@ -131,6 +133,7 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         st.session_state.chat_history.append({"role": "user", "content": user_input})
 
         approaches_str = "\n".join(gsk_approaches)
+        flow_str = " → ".join(sales_call_flow)
 
         prompt = f"""
 Language: {language}
@@ -144,6 +147,9 @@ Doctor Specialty: {specialty}
 HCP Persona: {persona}
 Approved GSK Sales Approaches:
 {approaches_str}
+Sales Call Flow Steps:
+{flow_str}
+Use ABAC (Acknowledge-Probing-Action-Commitment) technique for handling objections.
 Response Length: {response_length}
 Response Tone: {response_tone}
 Provide actionable suggestions tailored to this persona, following the selected length and tone, in a friendly and professional manner.
@@ -188,11 +194,12 @@ with chat_container:
             <h3>{persona} Segment</h3>
             <p><b>Behavior:</b> {', '.join(barrier) if barrier else 'None'}</p>
             <p><b>Brand:</b> {brand}</p>
+            <p><b>Sales Flow:</b> {flow_str}</p>
             <p><b>Tone:</b> {response_tone}</p>
-            <p><b>AI Suggestion:</b> Example probing question or approach here...</p>
+            <p><b>AI Suggestion:</b> Example probing question or ABAC objection handling approach here...</p>
         </div>
         """
-        components.html(html_content, height=250)
+        components.html(html_content, height=300)
 
 # --- Brand leaflet ---
 st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
