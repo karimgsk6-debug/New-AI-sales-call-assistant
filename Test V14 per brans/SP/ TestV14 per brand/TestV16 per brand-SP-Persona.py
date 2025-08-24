@@ -9,7 +9,7 @@ from docx import Document
 
 # --- Hardcoded Groq API key ---
 GROQ_API_KEY = "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"
-client = Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key="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")
 
 # --- Disclaimer ---
 st.markdown(
@@ -33,6 +33,7 @@ language = st.radio("Select Language / اختر اللغة", options=["English",
 # --- GSK logo ---
 logo_local_path = "images/gsk_logo.png"
 logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
+
 col1, col2 = st.columns([1, 5])
 with col1:
     try:
@@ -94,9 +95,11 @@ gsk_approaches = [
 # --- Sales Call Flow ---
 sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
-# --- Sidebar Filters & Reset ---
+# --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
-if st.sidebar.button("🔄 Reset Selections / ابدأ جديد"):
+
+# Reset button
+if st.sidebar.button("🔄 Reset Selections"):
     st.session_state.chat_history = []
     st.session_state.user_input = ""
     brand = ""
@@ -121,10 +124,10 @@ else:
 
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
-# --- Load brand image ---
+# --- Load brand image safely ---
 if brand:
+    image_path = gsk_brands_images.get(brand)
     try:
-        image_path = gsk_brands_images.get(brand)
         if image_path.startswith("http"):
             response = requests.get(image_path)
             img = Image.open(BytesIO(response.content))
@@ -139,12 +142,18 @@ if brand:
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 
+# --- Start New Discussion button ---
+if st.button("🆕 Start New Discussion / بداية جديدة"):
+    st.session_state.chat_history = []
+    st.session_state.user_input = ""
+    st.experimental_rerun()
+
 # --- Chat container ---
 chat_container = st.container()
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
 user_input = st.text_area(placeholder_text, key="user_input", height=80)
 
-# --- Highlight APACT ---
+# --- Function to highlight APACT ---
 def highlight_apact(text):
     colors = {
         "Acknowledge": "#FFDDC1",
@@ -162,8 +171,8 @@ def highlight_apact(text):
         )
     return text
 
-# --- Create Word file ---
-def create_word_file(text):
+# --- Function to create Word file ---
+def create_word_file(text, filename="AI_Response.docx"):
     doc = Document()
     doc.add_heading("AI Sales Call Assistant Response", level=1)
     for line in text.split("\n"):
@@ -173,10 +182,11 @@ def create_word_file(text):
     file_stream.seek(0)
     return file_stream
 
-# --- Send button ---
-if st.button("🚀 Send / أرسل") and user_input.strip():
+# --- Send button with APACT integration ---
+if st.button("🚀 Send / أرسل") and st.session_state.user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
+        user_msg = st.session_state.user_input
+        st.session_state.chat_history.append({"role": "user", "content": user_msg})
 
         approaches_str = "\n".join(gsk_approaches)
         flow_str = " → ".join(sales_call_flow)
@@ -184,7 +194,7 @@ if st.button("🚀 Send / أرسل") and user_input.strip():
         prompt = f"""
 Language: {language}
 You are an expert GSK sales assistant. 
-User input: {user_input}
+User input: {user_msg}
 RACE Segment: {segment}
 Doctor Barrier: {', '.join(barrier) if barrier else 'None'}
 Objective: {objective}
@@ -213,9 +223,12 @@ Instructions for AI:
 
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
-        st.session_state.user_input = ""  # clear input
 
-# --- Display chat history ---
+        # Clear input safely and refresh
+        st.session_state.user_input = ""
+        st.experimental_rerun()
+
+# --- Display chat history with APACT highlighting and Word download ---
 with chat_container:
     if interface_mode == "Chatbot":
         st.subheader("💬 Chatbot Interface")
@@ -229,6 +242,7 @@ with chat_container:
             else:
                 highlighted = highlight_apact(msg["content"])
                 st.markdown(highlighted, unsafe_allow_html=True)
+
                 word_file = create_word_file(msg["content"])
                 st.download_button(
                     label="📄 Download Response as Word",
