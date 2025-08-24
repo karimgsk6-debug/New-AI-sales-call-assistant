@@ -8,13 +8,25 @@ import re
 from docx import Document
 from io import BytesIO
 
-# --- Hardcoded Groq API key (replace with your actual key) ---
-GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"  # <-- Replace this with your Groq API key
+# --- Hardcoded Groq API key ---
+GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"  # <-- Replace with your Groq API key
 client = Groq(api_key="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")
+
+# --- Disclaimer ---
+st.markdown(
+    """
+    ⚠️ **Disclaimer:**  
+    This AI-powered assistant is designed to **support sales representatives** in preparing and tailoring sales calls.  
+    It is **not a replacement for medical or professional judgment**. Always follow company guidelines and approved selling approaches.
+    """,
+    unsafe_allow_html=True
+)
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if "user_input" not in st.session_state:
+    st.session_state.user_input = ""
 
 # --- Language selector ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
@@ -86,34 +98,46 @@ sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Dr
 
 # --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
-brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
-segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
-objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
-specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
-persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
 
-# --- AI Response Customization ---
-response_length_options = ["Short", "Medium", "Long"]
-response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
-response_length = st.sidebar.selectbox("Select Response Length / اختر طول الرد", response_length_options)
-response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options)
+# Reset button
+if st.sidebar.button("🔄 Reset Selections"):
+    st.session_state.chat_history = []
+    st.session_state.user_input = ""
+    brand = ""
+    segment = ""
+    barrier = []
+    objective = ""
+    specialty = ""
+    persona = ""
+    response_length = "Medium"
+    response_tone = "Formal"
+else:
+    brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
+    segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
+    barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
+    objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
+    specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
+    persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
+    response_length_options = ["Short", "Medium", "Long"]
+    response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
+    response_length = st.sidebar.selectbox("Select Response Length / اختر طول الرد", response_length_options)
+    response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options)
 
-# --- Interface Mode ---
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
 # --- Load brand image safely ---
-image_path = gsk_brands_images.get(brand)
-try:
-    if image_path.startswith("http"):
-        response = requests.get(image_path)
-        img = Image.open(BytesIO(response.content))
-    else:
-        img = Image.open(image_path)
-    st.image(img, width=200)
-except Exception:
-    st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
-    st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
+if brand:
+    image_path = gsk_brands_images.get(brand)
+    try:
+        if image_path.startswith("http"):
+            response = requests.get(image_path)
+            img = Image.open(BytesIO(response.content))
+        else:
+            img = Image.open(image_path)
+        st.image(img, width=200)
+    except Exception:
+        st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
+        st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
 # --- Clear chat button ---
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
@@ -192,6 +216,7 @@ Instructions for AI:
 
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
+        st.session_state.user_input = ""  # reset input box after send
 
 # --- Display chat history with ABAC highlighting and Word download ---
 with chat_container:
@@ -213,9 +238,9 @@ with chat_container:
                 st.download_button(
                     label="📄 Download Response as Word",
                     data=word_file,
-                    file_name=f"AI_Response_{idx}.docx",  # unique filename
+                    file_name=f"AI_Response_{idx}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    key=f"download_{idx}"  # unique key
+                    key=f"download_{idx}"
                 )
 
     elif interface_mode == "Card Dashboard":
@@ -242,4 +267,5 @@ with chat_container:
         components.html(html_content, height=300)
 
 # --- Brand leaflet ---
-st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
+if brand:
+    st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
