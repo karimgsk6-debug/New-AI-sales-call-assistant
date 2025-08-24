@@ -40,7 +40,7 @@ gsk_brands = {
     "Zejula": "https://example.com/zejula-leaflet",
 }
 gsk_brands_images = {
-    "Trelegy": "https://ar.everyone.org/media/catalog/product/cache/ed2b1632a8de8f32ba56bdb1c61c6802/t/r/trelegy_ellipta_img.png",
+    "Trelegy": "https://mimsshst.blob.core.windows.net/drug-resources/ID/packshot/Trelegy%20Ellipta6001PPS0.JPG",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
     "Zejula": "https://lh4.googleusercontent.com/proxy/wpBMIGLXVD6wGuk-FizVEUf_2mQWbt6m0pShWWovQMQXQ4f1mWceGSCSqm7q6MJi0Boe7nvlIGuaRzelL376fw2vaNgc9QprmGJaXpe-945WLiIEuR0-ZzYn0Q",
 }
