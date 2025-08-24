@@ -5,6 +5,8 @@ from io import BytesIO
 from groq import Groq
 import streamlit.components.v1 as components
 import re
+from docx import Document
+from io import BytesIO
 
 # --- Hardcoded Groq API key (replace with your actual key) ---
 GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"  # <-- Replace this with your Groq API key
@@ -131,7 +133,6 @@ def highlight_abac(text):
         "Commitment": "#D1D1FF"
     }
     for step, color in colors.items():
-        # Highlight step name and its content
         text = re.sub(
             fr"({step}:.*?)(?=(Acknowledge|Probing|Action|Commitment|$))",
             lambda m: f"<div style='background:{color}; padding:8px; border-radius:6px; margin:5px 0;'>{m.group(1)}</div>",
@@ -140,7 +141,18 @@ def highlight_abac(text):
         )
     return text
 
-# --- Send button with ABAC integrated ---
+# --- Function to create Word file ---
+def create_word_file(text, filename="AI_Response.docx"):
+    doc = Document()
+    doc.add_heading("AI Sales Call Assistant Response", level=1)
+    for line in text.split("\n"):
+        doc.add_paragraph(line)
+    file_stream = BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    return file_stream
+
+# --- Send button with ABAC integration ---
 if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
         st.session_state.chat_history.append({"role": "user", "content": user_input})
@@ -165,12 +177,10 @@ Sales Call Flow Steps:
 
 Instructions for AI:
 - Handle all objections using ABAC (Acknowledge → Probing → Action → Commitment).
-- Provide ready-to-use phrasing that the sales rep can say during the call.
-- Clearly label each step (Acknowledge, Probing, Action, Commitment).
-- Tailor responses to persona, selected tone ({response_tone}), and length ({response_length}).
+- Clearly label each step.
+- Tailor responses to persona, tone ({response_tone}), and length ({response_length}).
 """
 
-        # Call Groq API
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
@@ -183,7 +193,7 @@ Instructions for AI:
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-# --- Display chat history with ABAC highlighting ---
+# --- Display chat history with ABAC highlighting and Word download ---
 with chat_container:
     if interface_mode == "Chatbot":
         st.subheader("💬 Chatbot Interface")
@@ -193,6 +203,15 @@ with chat_container:
             else:
                 highlighted = highlight_abac(msg["content"])
                 st.markdown(highlighted, unsafe_allow_html=True)
+
+                # --- Download Button ---
+                word_file = create_word_file(msg["content"])
+                st.download_button(
+                    label="📄 Download Response as Word",
+                    data=word_file,
+                    file_name="AI_Response.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
 
     elif interface_mode == "Card Dashboard":
         st.subheader("📊 Card-Based Dashboard")
