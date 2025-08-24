@@ -9,7 +9,7 @@ from docx import Document
 
 # --- Hardcoded Groq API key ---
 GROQ_API_KEY = "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"  # <-- Replace with your Groq API key
-client = Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key="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")
 
 # --- Disclaimer ---
 st.markdown(
