@@ -98,6 +98,7 @@ sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Dr
 # --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
 
+# Reset button
 if st.sidebar.button("🔄 Reset Selections"):
     st.session_state.chat_history = []
     st.session_state.user_input = ""
@@ -137,19 +138,10 @@ if brand:
         st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
         st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
-# --- Clear chat button ---
-if st.button("🗑️ Clear Chat / مسح المحادثة"):
-    st.session_state.chat_history = []
-
 # --- Chat container ---
 chat_container = st.container()
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
-user_input = st.text_area(placeholder_text, key="user_input", height=80)
-
-# --- Start New Discussion button ---
-if st.button("🆕 Start New Discussion / بداية جديدة"):
-    st.session_state.chat_history = []
-    st.experimental_rerun()
+user_input = st.text_area(placeholder_text, key="user_input", height=80, value=st.session_state.get("user_input", ""))
 
 # --- Function to highlight APACT ---
 def highlight_apact(text):
@@ -158,7 +150,7 @@ def highlight_apact(text):
         "Probing": "#FFFACD",
         "Answer": "#C1FFD7",
         "Confirm": "#D1D1FF",
-        "Transition": "#FFC1E3"
+        "Transition": "#FFD1DC"
     }
     for step, color in colors.items():
         text = re.sub(
@@ -180,8 +172,17 @@ def create_word_file(text, filename="AI_Response.docx"):
     file_stream.seek(0)
     return file_stream
 
+# --- Start New Discussion button ---
+if st.button("🆕 Start New Discussion / بدء محادثة جديدة"):
+    st.session_state.chat_history = []
+    st.session_state.user_input = ""
+
+# --- Clear chat button ---
+if st.button("🗑️ Clear Chat / مسح المحادثة"):
+    st.session_state.chat_history = []
+
 # --- Send button with APACT integration ---
-if st.button("🚀 Send / أرسل") and st.session_state.user_input.strip():
+if st.button("🚀 Send / أرسل") and st.session_state.get("user_input", "").strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
         user_msg = st.session_state.user_input
         st.session_state.chat_history.append({"role": "user", "content": user_msg})
@@ -222,8 +223,8 @@ Instructions for AI:
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-        # Clear input safely using rerun
-        st.experimental_rerun()
+        # --- Clear input safely ---
+        st.session_state["user_input"] = ""
 
 # --- Display chat history with APACT highlighting and Word download ---
 with chat_container:
