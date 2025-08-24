@@ -7,7 +7,7 @@ from groq import Groq
 import streamlit.components.v1 as components
 
 # --- Initialize Groq client ---
-client = Groq(api_key="gsk_cCf4tlGySSjJiOkkvkb1WGdyb3FY4ODNtba4n8Gl2dBFJLtl")
+client = Groq(api_key="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")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
