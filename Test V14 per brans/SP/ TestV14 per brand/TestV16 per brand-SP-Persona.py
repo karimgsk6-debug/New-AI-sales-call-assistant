@@ -8,8 +8,8 @@ import re
 from docx import Document
 
 # --- Hardcoded Groq API key ---
-GROQ_API_KEY = "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"
-client = Groq(api_key="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")
+GROQ_API_KEY = "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"  # <-- Replace with your Groq API key
+client = Groq(api_key=GROQ_API_KEY)
 
 # --- Disclaimer ---
 st.markdown(
@@ -98,7 +98,6 @@ sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Dr
 # --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
 
-# Reset button
 if st.sidebar.button("🔄 Reset Selections"):
     st.session_state.chat_history = []
     st.session_state.user_input = ""
@@ -142,16 +141,15 @@ if brand:
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 
-# --- Start New Discussion button ---
-if st.button("🆕 Start New Discussion / بداية جديدة"):
-    st.session_state.chat_history = []
-    st.session_state.user_input = ""
-    st.experimental_rerun()
-
 # --- Chat container ---
 chat_container = st.container()
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
 user_input = st.text_area(placeholder_text, key="user_input", height=80)
+
+# --- Start New Discussion button ---
+if st.button("🆕 Start New Discussion / بداية جديدة"):
+    st.session_state.chat_history = []
+    st.experimental_rerun()
 
 # --- Function to highlight APACT ---
 def highlight_apact(text):
@@ -160,7 +158,7 @@ def highlight_apact(text):
         "Probing": "#FFFACD",
         "Answer": "#C1FFD7",
         "Confirm": "#D1D1FF",
-        "Transition": "#FFD1DC"
+        "Transition": "#FFC1E3"
     }
     for step, color in colors.items():
         text = re.sub(
@@ -224,8 +222,7 @@ Instructions for AI:
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-        # Clear input safely and refresh
-        st.session_state.user_input = ""
+        # Clear input safely using rerun
         st.experimental_rerun()
 
 # --- Display chat history with APACT highlighting and Word download ---
@@ -243,6 +240,7 @@ with chat_container:
                 highlighted = highlight_apact(msg["content"])
                 st.markdown(highlighted, unsafe_allow_html=True)
 
+                # --- Download Button with unique key ---
                 word_file = create_word_file(msg["content"])
                 st.download_button(
                     label="📄 Download Response as Word",
