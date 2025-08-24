@@ -10,7 +10,7 @@ from reportlab.lib.utils import ImageReader
 st.set_page_config(page_title="AI Sales Call Assistant", layout="wide")
 
 # --- Initialize Groq client ---
-groq_api_key = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", "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"))
+groq_api_key = st.secrets.get("GROQ_API_KEY", os.getenv("GROQ_API_KEY", "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"))
 if not groq_api_key:
     st.warning("⚠️ No Groq API key found. Please add it in Streamlit secrets or as an environment variable.")
 client = Groq(api_key=groq_api_key) if groq_api_key else None
