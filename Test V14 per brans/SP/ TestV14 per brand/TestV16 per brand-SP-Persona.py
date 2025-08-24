@@ -197,20 +197,25 @@ Instructions for AI:
 with chat_container:
     if interface_mode == "Chatbot":
         st.subheader("💬 Chatbot Interface")
-        for msg in st.session_state.chat_history:
+        for idx, msg in enumerate(st.session_state.chat_history):
             if msg["role"] == "user":
-                st.markdown(f"<div style='text-align:right; background:#d1e7dd; padding:10px; border-radius:12px; margin:10px 0;'>{msg['content']}</div>", unsafe_allow_html=True)
+                st.markdown(
+                    f"<div style='text-align:right; background:#d1e7dd; padding:10px; "
+                    f"border-radius:12px; margin:10px 0;'>{msg['content']}</div>",
+                    unsafe_allow_html=True
+                )
             else:
                 highlighted = highlight_abac(msg["content"])
                 st.markdown(highlighted, unsafe_allow_html=True)
 
-                # --- Download Button ---
+                # --- Download Button with unique key ---
                 word_file = create_word_file(msg["content"])
                 st.download_button(
                     label="📄 Download Response as Word",
                     data=word_file,
-                    file_name="AI_Response.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    file_name=f"AI_Response_{idx}.docx",  # unique filename
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    key=f"download_{idx}"  # unique key
                 )
 
     elif interface_mode == "Card Dashboard":
