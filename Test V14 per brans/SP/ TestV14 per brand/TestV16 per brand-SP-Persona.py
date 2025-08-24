@@ -6,11 +6,10 @@ from groq import Groq
 import streamlit.components.v1 as components
 import re
 from docx import Document
-from io import BytesIO
 
 # --- Hardcoded Groq API key ---
-GROQ_API_KEY = "YOUR_GROQ_API_KEY_HERE"  # Replace with your Groq API key
-client = Groq(api_key="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")
+GROQ_API_KEY = "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"
+client = Groq(api_key=GROQ_API_KEY)
 
 # --- Disclaimer ---
 st.markdown(
@@ -27,32 +26,13 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "user_input" not in st.session_state:
     st.session_state.user_input = ""
-if "brand" not in st.session_state:
-    st.session_state.brand = ""
-if "segment" not in st.session_state:
-    st.session_state.segment = ""
-if "barrier" not in st.session_state:
-    st.session_state.barrier = []
-if "objective" not in st.session_state:
-    st.session_state.objective = ""
-if "specialty" not in st.session_state:
-    st.session_state.specialty = ""
-if "persona" not in st.session_state:
-    st.session_state.persona = ""
-if "response_length" not in st.session_state:
-    st.session_state.response_length = "Medium"
-if "response_tone" not in st.session_state:
-    st.session_state.response_tone = "Formal"
-if "language" not in st.session_state:
-    st.session_state.language = "English"
 
 # --- Language selector ---
-st.session_state.language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"], index=0 if st.session_state.language=="English" else 1)
+language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
 # --- GSK logo ---
 logo_local_path = "images/gsk_logo.png"
 logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
-
 col1, col2 = st.columns([1, 5])
 with col1:
     try:
@@ -114,39 +94,37 @@ gsk_approaches = [
 # --- Sales Call Flow ---
 sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
-# --- Sidebar Filters ---
+# --- Sidebar Filters & Reset ---
 st.sidebar.header("Filters & Options")
-
-# Reset Selections
-if st.sidebar.button("🔄 Reset Selections"):
-    st.session_state.brand = ""
-    st.session_state.segment = ""
-    st.session_state.barrier = []
-    st.session_state.objective = ""
-    st.session_state.specialty = ""
-    st.session_state.persona = ""
-    st.session_state.response_length = "Medium"
-    st.session_state.response_tone = "Formal"
+if st.sidebar.button("🔄 Reset Selections / ابدأ جديد"):
+    st.session_state.chat_history = []
     st.session_state.user_input = ""
-
-# Filter selections
-st.session_state.brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()), index=0 if st.session_state.brand=="" else list(gsk_brands.keys()).index(st.session_state.brand))
-st.session_state.segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-st.session_state.barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=st.session_state.barrier)
-st.session_state.objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
-st.session_state.specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
-st.session_state.persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
-response_length_options = ["Short", "Medium", "Long"]
-response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
-st.session_state.response_length = st.sidebar.selectbox("Select Response Length / اختر طول الرد", response_length_options, index=response_length_options.index(st.session_state.response_length))
-st.session_state.response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options, index=response_tone_options.index(st.session_state.response_tone))
+    brand = ""
+    segment = ""
+    barrier = []
+    objective = ""
+    specialty = ""
+    persona = ""
+    response_length = "Medium"
+    response_tone = "Formal"
+else:
+    brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
+    segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
+    barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
+    objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
+    specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
+    persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
+    response_length_options = ["Short", "Medium", "Long"]
+    response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
+    response_length = st.sidebar.selectbox("Select Response Length / اختر طول الرد", response_length_options)
+    response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options)
 
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
-# --- Load brand image safely ---
-if st.session_state.brand:
-    image_path = gsk_brands_images.get(st.session_state.brand)
+# --- Load brand image ---
+if brand:
     try:
+        image_path = gsk_brands_images.get(brand)
         if image_path.startswith("http"):
             response = requests.get(image_path)
             img = Image.open(BytesIO(response.content))
@@ -154,34 +132,19 @@ if st.session_state.brand:
             img = Image.open(image_path)
         st.image(img, width=200)
     except Exception:
-        st.warning(f"⚠️ Could not load image for {st.session_state.brand}. Using placeholder.")
+        st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
         st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
-# --- Reset / New Discussion Buttons ---
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("🗑️ Clear Chat / مسح المحادثة"):
-        st.session_state.chat_history = []
-with col2:
-    if st.button("🆕 Start a New Discussion"):
-        st.session_state.chat_history = []
-        st.session_state.brand = ""
-        st.session_state.segment = ""
-        st.session_state.barrier = []
-        st.session_state.objective = ""
-        st.session_state.specialty = ""
-        st.session_state.persona = ""
-        st.session_state.response_length = "Medium"
-        st.session_state.response_tone = "Formal"
-        st.session_state.user_input = ""
-        st.success("New discussion started! All selections have been reset.")
+# --- Clear chat button ---
+if st.button("🗑️ Clear Chat / مسح المحادثة"):
+    st.session_state.chat_history = []
 
 # --- Chat container ---
 chat_container = st.container()
-placeholder_text = "Type your message..." if st.session_state.language == "English" else "اكتب رسالتك..."
-st.session_state.user_input = st.text_area(placeholder_text, key="user_input", height=80, value=st.session_state.user_input)
+placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
+user_input = st.text_area(placeholder_text, key="user_input", height=80)
 
-# --- APACT Highlight Function ---
+# --- Highlight APACT ---
 def highlight_apact(text):
     colors = {
         "Acknowledge": "#FFDDC1",
@@ -199,8 +162,8 @@ def highlight_apact(text):
         )
     return text
 
-# --- Create Word file function ---
-def create_word_file(text, filename="AI_Response.docx"):
+# --- Create Word file ---
+def create_word_file(text):
     doc = Document()
     doc.add_heading("AI Sales Call Assistant Response", level=1)
     for line in text.split("\n"):
@@ -210,24 +173,24 @@ def create_word_file(text, filename="AI_Response.docx"):
     file_stream.seek(0)
     return file_stream
 
-# --- Send button with APACT integration ---
-if st.button("🚀 Send / أرسل") and st.session_state.user_input.strip():
+# --- Send button ---
+if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
-        st.session_state.chat_history.append({"role": "user", "content": st.session_state.user_input})
+        st.session_state.chat_history.append({"role": "user", "content": user_input})
 
         approaches_str = "\n".join(gsk_approaches)
         flow_str = " → ".join(sales_call_flow)
 
         prompt = f"""
-Language: {st.session_state.language}
+Language: {language}
 You are an expert GSK sales assistant. 
-User input: {st.session_state.user_input}
-RACE Segment: {st.session_state.segment}
-Doctor Barrier: {', '.join(st.session_state.barrier) if st.session_state.barrier else 'None'}
-Objective: {st.session_state.objective}
-Brand: {st.session_state.brand}
-Doctor Specialty: {st.session_state.specialty}
-HCP Persona: {st.session_state.persona}
+User input: {user_input}
+RACE Segment: {segment}
+Doctor Barrier: {', '.join(barrier) if barrier else 'None'}
+Objective: {objective}
+Brand: {brand}
+Doctor Specialty: {specialty}
+HCP Persona: {persona}
 Approved GSK Sales Approaches:
 {approaches_str}
 Sales Call Flow Steps:
@@ -236,13 +199,13 @@ Sales Call Flow Steps:
 Instructions for AI:
 - Handle all objections using APACT (Acknowledge → Probing → Answer → Confirm → Transition).
 - Clearly label each step.
-- Tailor responses to persona, tone ({st.session_state.response_tone}), and length ({st.session_state.response_length}).
+- Tailor responses to persona, tone ({response_tone}), and length ({response_length}).
 """
 
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
-                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {st.session_state.language}."},
+                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.7
@@ -250,7 +213,7 @@ Instructions for AI:
 
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
-        st.session_state.user_input = ""  # reset input box after send
+        st.session_state.user_input = ""  # clear input
 
 # --- Display chat history ---
 with chat_container:
@@ -266,8 +229,6 @@ with chat_container:
             else:
                 highlighted = highlight_apact(msg["content"])
                 st.markdown(highlighted, unsafe_allow_html=True)
-
-                # --- Download Button ---
                 word_file = create_word_file(msg["content"])
                 st.download_button(
                     label="📄 Download Response as Word",
@@ -282,7 +243,7 @@ with chat_container:
         segments_list = ["Evidence-Seeker", "Skeptic", "Time-Pressured"]
         for seg in segments_list:
             with st.expander(f"{seg} Segment"):
-                st.write(f"Suggested approach for {seg} with {', '.join(st.session_state.barrier) if st.session_state.barrier else 'None'} barriers selected.")
+                st.write(f"Suggested approach for {seg} with {', '.join(barrier) if barrier else 'None'} barriers selected.")
                 st.progress(70)
                 st.button(f"Next Suggestion for {seg}")
 
@@ -290,16 +251,16 @@ with chat_container:
         st.subheader("🔗 HCP Engagement Flow")
         html_content = f"""
         <div style='font-family:sans-serif; background:#f0f2f6; padding:20px; border-radius:10px;'>
-            <h3>{st.session_state.persona} Segment</h3>
-            <p><b>Behavior:</b> {', '.join(st.session_state.barrier) if st.session_state.barrier else 'None'}</p>
-            <p><b>Brand:</b> {st.session_state.brand}</p>
+            <h3>{persona} Segment</h3>
+            <p><b>Behavior:</b> {', '.join(barrier) if barrier else 'None'}</p>
+            <p><b>Brand:</b> {brand}</p>
             <p><b>Sales Flow:</b> {" → ".join(sales_call_flow)}</p>
-            <p><b>Tone:</b> {st.session_state.response_tone}</p>
+            <p><b>Tone:</b> {response_tone}</p>
             <p><b>AI Suggestion:</b> APACT objection handling phrasing generated by AI here...</p>
         </div>
         """
         components.html(html_content, height=300)
 
 # --- Brand leaflet ---
-if st.session_state.brand:
-    st.markdown(f"[Brand Leaflet - {st.session_state.brand}]({gsk_brands[st.session_state.brand]})")
+if brand:
+    st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
