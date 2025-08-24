@@ -4,21 +4,58 @@ import requests
 from io import BytesIO
 import groq
 from groq import Groq
+import streamlit.components.v1 as components
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from io import BytesIO
+from docx import Document
 
-# =========================
-# Safe import for Word export
-# =========================
-try:
-    from docx import Document
-    HAS_DOCX = True
-except ImportError:
-    HAS_DOCX = False
+# --- Initialize Groq client ---
+client = Groq(api_key="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")  # <-- add your Groq API key here
 
-# =========================
-# Helpers
-# =========================
+# --- Initialize session state ---
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+if "filters" not in st.session_state:
+    st.session_state.filters = {
+        "brand": None,
+        "segment": None,
+        "barrier": [],
+        "objective": None,
+        "specialty": None,
+        "persona": None,
+        "personal_type_exp": [],
+        "personal_type_comm": [],
+        "personal_type_mind": [],
+        "response_length": "Medium",
+        "response_tone": "Formal",
+        "interface_mode": "Chatbot",
+        "max_steps": 4,
+        "max_bullets": 3,
+        "strict_precision": True,
+    }
+
+# --- Helpers ---
+def reset_selections():
+    st.session_state.filters.update({
+        "brand": None,
+        "segment": None,
+        "barrier": [],
+        "objective": None,
+        "specialty": None,
+        "persona": None,
+        "personal_type_exp": [],
+        "personal_type_comm": [],
+        "personal_type_mind": [],
+        "response_length": "Medium",
+        "response_tone": "Formal",
+        "interface_mode": "Chatbot",
+        "max_steps": 4,
+        "max_bullets": 3,
+        "strict_precision": True,
+    })
+
 def t(lang: str, en: str, ar: str) -> str:
     return en if lang == "English" else ar
 
@@ -36,86 +73,60 @@ def safe_get_image(src: str, width: int = 200):
         st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=width)
 
 def extract_json(s: str) -> Optional[Dict[str, Any]]:
-    if not isinstance(s, str) or not s.strip():
-        return None
     try:
         return json.loads(s)
     except Exception:
-        try:
-            start = s.index("{")
-            end = s.rindex("}") + 1
-            return json.loads(s[start:end])
-        except Exception:
-            return None
+        pass
+    try:
+        start = s.index("{")
+        end = s.rindex("}") + 1
+        return json.loads(s[start:end])
+    except Exception:
+        return None
+
+def limit_list(xs: List[str], n: int) -> List[str]:
+    return xs[:n] if isinstance(xs, list) else []
 
 def map_len_constraints(resp_len: str):
-    if resp_len == "Short": return 3, 2, 18
-    if resp_len == "Long": return 6, 4, 28
-    return 4, 3, 22  # Medium
+    if resp_len == "Short":
+        return 3, 2, 18
+    if resp_len == "Long":
+        return 6, 4, 28
+    return 4, 3, 22
 
-# =========================
-# Render structured plan (single language)
-# =========================
-def render_structured_plan_lang(data: Dict[str, Any], lang: str):
-    st.markdown("### " + t(lang, "Sales Call Plan", "خطة الزيارة"))
-    
-    title = data.get("title", {}).get(lang[:2].upper(), "")
-    if title: st.markdown(f"**{title}**")
-    
-    summary = data.get("summary", {}).get(lang[:2].upper(), "")
-    if summary: st.markdown(f"> {summary}")
-    
-    for i, step in enumerate(data.get("steps", []), start=1):
-        step_title = step.get("title", {}).get(lang[:2].upper(), "")
-        with st.expander(f"{t(lang,'Step','الخطوة')} {i}: {step_title}", expanded=(i==1)):
-            for key in ["goal", "talk_track", "evidence", "objection", "action"]:
-                val = step.get(key, {}).get(lang[:2].upper(), "")
-                if val: st.markdown(f"**{t(lang,key.capitalize(), key.capitalize())}:** {val}")
-    
-    closing = data.get("closing", {})
+def render_structured_plan(data: Dict[str, Any], lang: str):
+    title = data.get("title") or t(lang, "Sales Call Plan", "خطة الزيارة")
+    summary = data.get("summary") or ""
+    steps = data.get("steps") or []
+    closing = data.get("closing") or {}
+
+    st.markdown(f"### {title}")
+    if summary:
+        st.markdown(f"> {summary}")
+
+    for i, step in enumerate(steps, start=1):
+        head = f"{t(lang,'Step','الخطوة')} {i}: {step.get('title','')}"
+        with st.expander(head, expanded=(i==1)):
+            for key in ["goal","talk_track","evidence","objection","action"]:
+                if step.get(key):
+                    st.markdown(f"**{t(lang,key.replace('_',' ').title(),'')}:** {step[key]}")
     if closing:
         st.markdown("---")
         st.markdown(f"#### {t(lang,'Closing & Next Steps','الختام والخطوات التالية')}")
-        for key in ["cta", "next_visit_plan", "metrics"]:
-            val = closing.get(key, {})
-            if isinstance(val, list):
-                val = " • ".join([v.get(lang[:2].upper(), "") if isinstance(v, dict) else str(v) for v in val])
-            elif isinstance(val, dict):
-                val = val.get(lang[:2].upper(), "")
-            if val: st.markdown(f"**{t(lang,key.replace('_',' ').capitalize(), key.replace('_',' ').capitalize())}:** {val}")
+        for key in ["cta","next_visit_plan"]:
+            if closing.get(key):
+                st.markdown(f"**{t(lang,key.replace('_',' ').title(),'')}:** {closing[key]}")
+        metrics = closing.get("metrics") or []
+        if metrics:
+            st.markdown(f"**{t(lang,'Metrics to Track','مؤشرات للمتابعة')}:** " + " • ".join(metrics))
 
-# =========================
-# Render generic plan (single language)
-# =========================
-def render_generic_plan_lang(data: Dict[str, Any], lang: str):
-    st.markdown("### " + t(lang,"Generated Sales Call Plan","الخطة المولدة"))
-    for section, content in data.items():
-        st.markdown(f"#### {section}")
-        if isinstance(content, list):
-            for item in content:
-                val = item.get(lang[:2].upper(), str(item)) if isinstance(item, dict) else str(item)
-                st.markdown(f"- {val}")
-        elif isinstance(content, dict):
-            for k, v in content.items():
-                val = v.get(lang[:2].upper(), str(v)) if isinstance(v, dict) else str(v)
-                st.markdown(f"**{k}:** {val}")
-        else:
-            st.markdown(str(content))
+def render_structured_plan_dual(data: Dict[str, Any]):
+    st.markdown("## 🇬🇧 English Version")
+    render_structured_plan(data, "English")
+    st.markdown("## 🇸🇦 Arabic Version")
+    render_structured_plan(data, "Arabic")
 
-# =========================
-# App setup
-# =========================
-st.set_page_config(page_title="AI Sales Call Assistant", layout="wide")
-
-language = st.radio("Select Language / اختر اللغة", ["English", "العربية"], horizontal=True)
-st.title(t(language, "🧠 AI Sales Call Assistant", "🧠 مساعد مكالمات المبيعات بالذكاء الاصطناعي"))
-st.caption(t(language,
-             "Tailor your sales call plan based on persona, barriers, and segment.",
-             "خصص خطة الزيارة بناءً على شخصية الطبيب والحواجز والشريحة."))
-
-# =========================
-# Data/constants
-# =========================
+# --- Constants ---
 gsk_brands = {
     "Augmentin": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/PDFs/pi.pdf",
     "Shingrix": "https://assets.gskinternet.com/pharma/GSKpro/Saudi/shingrix/shingrix-pi.pdf",
@@ -126,126 +137,88 @@ gsk_brands_images = {
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
     "Seretide": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
 }
-race_segments = ["R – Reach", "A – Acquisition", "C – Conversion", "E – Engagement"]
-doctor_barriers = [
-    t(language, "1 - HCP does not consider HZ a risk", "1 - لا يعتبر الطبيب القوباء المنطقية خطراً"),
-    t(language, "2 - No time", "2 - لا يوجد وقت"),
-    t(language, "3 - Cost concern", "3 - مشكلة التكلفة"),
-    t(language, "4 - Not convinced", "4 - غير مقتنع بالفعالية"),
-    t(language, "5 - Accessibility", "5 - صعوبة الوصول (POVs)"),
-]
-objectives = [t(language,"Awareness","التوعية"), t(language,"Adoption","التبني"), t(language,"Retention","الاستمرارية")]
-specialties = [
-    t(language,"General Practitioner","طبيب أسرة"),
-    t(language,"Cardiologist","طبيب قلب"),
-    t(language,"Dermatologist","طبيب جلدية"),
-    t(language,"Endocrinologist","طبيب غدد"),
-    t(language,"Pulmonologist","طبيب رئة"),
-]
-personas = [
-    t(language,"Uncommitted Vaccinator","غير ملتزم بالتطعيم"),
-    t(language,"Reluctant Efficiency","كفء متردد"),
-    t(language,"Patient Influenced","متأثر بطلبات المريض"),
-    t(language,"Committed Vaccinator","ملتزم بالتطعيم"),
-]
-personal_types_experience = [t(language,"Most Senior","الأكثر خبرة"), t(language,"Junior","مبتدئ")]
-personal_types_communication = [t(language,"Friendly","ودود"), t(language,"Masked","متحفظ"), t(language,"Open","منفتح"), t(language,"Reserved","رزين")]
-personal_types_mindset = [t(language,"Scientific","علمي"), t(language,"Emotional","عاطفي"), t(language,"Analytical","تحليلي"), t(language,"Pragmatic","عملي")]
-gsk_approaches = [
-    t(language,"Use data-driven evidence","استخدم الأدلة المبنية على البيانات"),
-    t(language,"Focus on patient outcomes","ركز على نتائج المريض"),
-    t(language,"Leverage storytelling techniques","استخدم أساليب السرد القصصي"),
-]
+race_segments = ["R – Reach","A – Acquisition","C – Conversion","E – Engagement"]
+doctor_barriers = ["1 - HCP does not consider HZ a risk","2 - No time","3 - Cost concern","4 - Not convinced","5 - Accessibility"]
+objectives = ["Awareness","Adoption","Retention"]
+specialties = ["General Practitioner","Cardiologist","Dermatologist","Endocrinologist","Pulmonologist"]
+personas = ["Uncommitted Vaccinator","Reluctant Efficiency","Patient Influenced","Committed Vaccinator"]
+personal_types_experience = ["Most Senior","Junior"]
+personal_types_communication = ["Friendly","Masked","Open","Reserved"]
+personal_types_mindset = ["Scientific","Emotional","Analytical","Pragmatic"]
+gsk_approaches = ["Use data-driven evidence","Focus on patient outcomes","Leverage storytelling techniques"]
 
-# =========================
-# Initialize Groq client
-# =========================
-client = Groq(api_key=st.secrets.get("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"))
-
-# =========================
-# Session state
-# =========================
-if "chat_history" not in st.session_state: st.session_state.chat_history = []
-if "filters" not in st.session_state: st.session_state.filters = {}
-
-def reset_selections():
-    st.session_state.filters.clear()
-
-# =========================
-# Sidebar
-# =========================
-st.sidebar.header(t(language,"Filters & Options","المرشحات والخيارات"))
-if st.sidebar.button("🔄 " + t(language, "Reset All Selections", "إعادة ضبط جميع الاختيارات")):
+# --- Sidebar ---
+st.sidebar.header("Filters & Options")
+if st.sidebar.button("🔄 Reset All Selections"):
     reset_selections()
+if st.sidebar.button("🗑️ Clear Chat History"):
+    st.session_state.chat_history = []
+    st.success("Chat history cleared!")
 
-brand = st.sidebar.selectbox(t(language,"Brand","العلامة التجارية"), list(gsk_brands.keys()))
-segment = st.sidebar.selectbox(t(language,"RACE Segment","شريحة RACE"), race_segments)
-barrier = st.sidebar.multiselect(t(language,"Doctor Barrier","حواجز الطبيب"), doctor_barriers)
-objective = st.sidebar.selectbox(t(language,"Objective","الهدف"), objectives)
-specialty = st.sidebar.selectbox(t(language,"Specialty","التخصص"), specialties)
-persona = st.sidebar.selectbox(t(language,"HCP Persona","شخصية الطبيب"), personas)
-personal_type_exp = st.sidebar.multiselect(t(language,"Experience Level","مستوى الخبرة"), personal_types_experience)
-personal_type_comm = st.sidebar.multiselect(t(language,"Communication Style","أسلوب التواصل"), personal_types_communication)
-personal_type_mind = st.sidebar.multiselect(t(language,"Mindset","العقلية"), personal_types_mindset)
+brand = st.sidebar.selectbox("Brand", list(gsk_brands.keys()))
+segment = st.sidebar.selectbox("RACE Segment", race_segments)
+barrier = st.sidebar.multiselect("Doctor Barrier", doctor_barriers)
+objective = st.sidebar.selectbox("Objective", objectives)
+specialty = st.sidebar.selectbox("Specialty", specialties)
+persona = st.sidebar.selectbox("HCP Persona", personas)
+personal_type_exp = st.sidebar.multiselect("Experience Level", personal_types_experience)
+personal_type_comm = st.sidebar.multiselect("Communication Style", personal_types_communication)
+personal_type_mind = st.sidebar.multiselect("Mindset", personal_types_mindset)
 personal_type = personal_type_exp + personal_type_comm + personal_type_mind
 
 response_length_options = ["Short","Medium","Long"]
 response_tone_options = ["Formal","Casual","Friendly","Persuasive"]
-response_length = st.sidebar.selectbox(t(language,"Response Length","طول الرد"), response_length_options)
-response_tone = st.sidebar.selectbox(t(language,"Response Tone","نبرة الرد"), response_tone_options)
+response_length = st.sidebar.selectbox("Response Length", response_length_options)
+response_tone = st.sidebar.selectbox("Response Tone", response_tone_options)
 
-max_steps_ui = st.sidebar.slider(t(language,"Max Steps","أقصى عدد للخطوات"), 2, 6, 4)
-max_bullets_ui = st.sidebar.slider(t(language,"Max Bullets/Step","أقصى نقاط لكل خطوة"), 1, 5, 3)
-strict_precision = st.sidebar.checkbox(t(language,"Strict Precision (very concise)","دقة صارمة (مختصر جدًا)"), True)
+max_steps_ui = st.sidebar.slider("Max Steps", 2, 6, st.session_state.filters["max_steps"])
+max_bullets_ui = st.sidebar.slider("Max Bullets/Step",1,5,st.session_state.filters["max_bullets"])
+strict_precision = st.sidebar.checkbox("Strict Precision", value=st.session_state.filters["strict_precision"])
+st.session_state.filters.update({"max_steps": max_steps_ui,"max_bullets": max_bullets_ui,"strict_precision": strict_precision})
 
-interface_mode = st.sidebar.radio(t(language,"Interface Mode","وضع الواجهة"),
-                                  [t(language,"Chatbot","الدردشة"),
-                                   t(language,"Card Dashboard","لوحة البطاقات"),
-                                   t(language,"Flow Visualization","مخطط التدفق")])
+interface_mode = st.sidebar.radio("Interface Mode", ["Chatbot","Card Dashboard","Flow Visualization"])
 
-# Brand image
-st.sidebar.markdown("—")
-st.sidebar.markdown(f"**{t(language,'Brand Leaflet','ورقة المنتج')}:** [{brand}]({gsk_brands[brand]})")
-safe_get_image(gsk_brands_images.get(brand, ""), width=180)
+# --- Chat container ---
+chat_container = st.container()
+user_input = st.text_area("Type your message...", key="user_input", height=80)
 
-# =========================
-# User input
-# =========================
-user_input = st.text_area(t(language,"Type your message...","اكتب رسالتك..."), key="user_input", height=80)
-
-# =========================
-# Prompt builder
-# =========================
+# --- Prompt builder ---
 def build_prompt() -> str:
+    steps_limit_len, bullets_limit_len, max_words = map_len_constraints(response_length)
+    steps_limit = min(steps_limit_len, st.session_state.filters["max_steps"])
+    bullets_limit = min(st.session_state.filters["max_bullets"],5)
+
     schema = {
-        "Probing Questions": ["3–5 open-ended questions with reasoning."],
-        "Communication Style": "Detailed guidance with do’s and don’ts.",
-        "Objection Handling": {"Barrier Name": "Realistic statement + strong sample response."},
-        "Key Messages": ["3–5 messages with 2–3 sentences each."],
-        "Closing Strategy": "Detailed closing dialogue."
+        "title": "string",
+        "summary": "string (<=35 words)",
+        "steps":[{"title":"string","goal":"string","talk_track":"string","evidence":"string","objection":"string","action":"string"}],
+        "closing":{"cta":"string","next_visit_plan":"string","metrics":["string","string"]}
     }
+
     constraints = f"""
-- Return ONLY a single JSON object following the schema.
-- Provide output ONLY in {language}.
-- Keep content practical and suitable for a field sales rep.
+Return ONLY JSON matching schema. Include ALL keys; unknown values = empty strings/lists.
+Sort steps by highest impact first. Max {steps_limit} steps, {bullets_limit} points per field.
+No markdown, prose, citations, or links. Ultra concise if Short/strict.
+Language: English and Arabic
 """
-    persona_style = ", ".join(personal_type) if personal_type else "None"
+
     approaches_str = "\n".join(gsk_approaches)
+    persona_style = ", ".join(personal_type) if personal_type else "None"
 
     prompt = f"""
-You are a pharma sales coach. Create a **very detailed sales call plan** in **{language} only**.
+You are an expert GSK sales assistant.
 
 Context:
-- Brand: {brand}
 - RACE Segment: {segment}
 - Doctor Barriers: {', '.join(barrier) if barrier else 'None'}
 - Objective: {objective}
+- Brand: {brand}
 - Specialty: {specialty}
 - HCP Persona: {persona}
 - HCP Personal Types: {persona_style}
 - Response Tone: {response_tone}
 
-Approved GSK Sales Approaches to reflect:
+Approved GSK Sales Approaches:
 {approaches_str}
 
 User input:
@@ -258,89 +231,70 @@ JSON Schema:
 """
     return prompt
 
-# =========================
-# Generate plan
-# =========================
-go_label = "🚀 " + t(language,"Generate Plan","إنشاء الخطة")
-if st.button(go_label) and user_input.strip():
-    with st.spinner(t(language,"Generating AI response...","جارٍ إنشاء الرد...")):
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
+# --- Generate Plan ---
+if st.button("🚀 Generate Plan") and user_input.strip():
+    with st.spinner("Generating AI response..."):
+        st.session_state.chat_history.append({"role":"user","content":user_input})
         prompt = build_prompt()
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
-                {"role": "system", "content": t(language,
-                                                "You are a helpful sales assistant that replies in the requested language only.",
-                                                "أنت مساعد مبيعات مفيد وترد باللغة المطلوبة فقط.")},
-                {"role": "user", "content": prompt}
+                {"role":"system","content":"You are a helpful sales assistant."},
+                {"role":"user","content":prompt}
             ],
-            temperature=0.3,
-            max_tokens=1800
+            temperature=0.2,
+            max_tokens=1500
         )
         ai_raw = response.choices[0].message.content
         data = extract_json(ai_raw)
 
         st.session_state.chat_history.append({
-            "role": "ai",
+            "role":"ai",
             "content": ai_raw if not data else json.dumps(data, ensure_ascii=False)
         })
 
         if data:
-            st.success(t(language,"Structured plan generated.","تم إنشاء خطة مُنظّمة."))
-            if "steps" in data or "closing" in data or "summary" in data:
-                render_structured_plan_lang(data, language)
-            else:
-                render_generic_plan_lang(data, language)
+            st.success("Structured plan generated.")
+            render_structured_plan_dual(data)
 
-            # Download options
-            if HAS_DOCX:
-                try:
-                    doc = Document()
-                    doc.add_heading(t(language,"Sales Call Plan","خطة الزيارة"), 0)
-                    def write_section(title, content):
-                        doc.add_heading(str(title), level=1)
-                        if isinstance(content, list):
-                            for item in content: doc.add_paragraph(str(item))
-                        elif isinstance(content, dict):
-                            for k, v in content.items(): doc.add_paragraph(f"{k}: {v}")
-                        else:
-                            doc.add_paragraph(str(content))
-                    if isinstance(data, dict):
-                        for k, v in data.items(): write_section(k, v)
-                    else: doc.add_paragraph(str(data))
-                    buf = BytesIO()
-                    doc.save(buf)
-                    buf.seek(0)
-                    st.download_button(
-                        t(language,"📥 Download Plan (Word)","📥 تنزيل الخطة (وورد)"),
-                        buf,
-                        file_name="sales_call_plan.docx",
-                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    )
-                except Exception:
-                    st.download_button(
-                        t(language,"📥 Download Plan (JSON)","📥 تنزيل الخطة (JSON)"),
-                        json.dumps(data, ensure_ascii=False, indent=2),
-                        file_name="sales_call_plan.json",
-                        mime="application/json"
-                    )
-            else:
-                st.download_button(
-                    t(language,"📥 Download Plan (JSON)","📥 تنزيل الخطة (JSON)"),
-                    json.dumps(data, ensure_ascii=False, indent=2),
-                    file_name="sales_call_plan.json",
-                    mime="application/json"
-                )
+            # --- Download as Word ---
+            doc = Document()
+            doc.add_heading(data.get("title","Sales Call Plan"), 0)
+
+            # English
+            doc.add_heading("🇬🇧 English Version", level=1)
+            if data.get("summary"):
+                doc.add_paragraph(data["summary"])
+            for i, step in enumerate(data.get("steps",[]),1):
+                doc.add_heading(f"Step {i}: {step.get('title','')}", level=2)
+                for key in ["goal","talk_track","evidence","objection","action"]:
+                    if step.get(key):
+                        doc.add_paragraph(f"{key.title()}: {step[key]}")
+
+            # Arabic
+            doc.add_heading("🇸🇦 Arabic Version", level=1)
+            if data.get("summary_ar"):
+                doc.add_paragraph(data["summary_ar"])
+            for i, step in enumerate(data.get("steps_ar",[]),1):
+                doc.add_heading(f"الخطوة {i}: {step.get('title','')}", level=2)
+                for key in ["goal","talk_track","evidence","objection","action"]:
+                    if step.get(key):
+                        doc.add_paragraph(f"{key.title()}: {step[key]}")
+
+            # Closing
+            if data.get("closing"):
+                doc.add_heading("Closing & Next Steps", level=1)
+                for key in ["cta","next_visit_plan"]:
+                    if data["closing"].get(key):
+                        doc.add_paragraph(f"{key.title()}: {data['closing'][key]}")
+                if data["closing"].get("metrics"):
+                    doc.add_paragraph("Metrics: " + " • ".join(data["closing"]["metrics"]))
+
+            doc_stream = BytesIO()
+            doc.save(doc_stream)
+            doc_stream.seek(0)
+            st.download_button("📄 Download Plan (Word)", doc_stream, file_name="sales_call_plan.docx",
+                               mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         else:
-            st.warning(t(language,"Could not parse structured JSON. Showing raw output:",
-                         "تعذّر تحليل JSON المنظّم. سيتم عرض المخرجات النصية:"))
+            st.warning("Could not parse structured JSON. Showing raw output:")
             st.markdown(f"<div style='background:#f0f2f6; padding:12px; border-radius:10px'>{ai_raw}</div>", unsafe_allow_html=True)
-
-# =========================
-# Chat history
-# =========================
-if st.session_state.chat_history:
-    st.subheader(t(language,"💬 Chat History","💬 سجلّ الدردشة"))
-    for msg in st.session_state.chat_history:
-        role = t(language, "🧑‍💼 You", "🧑‍💼 أنت") if msg["role"] == "user" else t(language, "🤖 Assistant", "🤖 المساعد")
-        st.markdown(f"**{role}:** {msg['content']}")
