@@ -36,8 +36,8 @@ with col2:
 # --- Brands ---
 gsk_brands = {
     "Trelegy": "https://example.com/trelegy-leaflet",
-    "Shingrix": "https://example.com/shingrix-leaflet",
-    "Zejula": "https://example.com/zejula-leaflet",
+    "Shingrix": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/Shingrix/pm_eg_sgx_eml_240052_reconstitution%20Safety.pdf",
+    "Zejula": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/Zejula/zejula_approved_abbreviated_prescribing_information.pdf",
 }
 gsk_brands_images = {
     "Trelegy": "https://mimsshst.blob.core.windows.net/drug-resources/ID/packshot/Trelegy%20Ellipta6001PPS0.JPG",
