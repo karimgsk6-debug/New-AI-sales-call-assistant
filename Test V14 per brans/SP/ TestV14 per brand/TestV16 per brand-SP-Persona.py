@@ -5,7 +5,6 @@ from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 from datetime import datetime
-import streamlit.components.v1 as components
 
 # --- Optional dependency for Word download ---
 try:
@@ -108,52 +107,43 @@ except:
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 
-# --- Chat container ---
+# --- Chat history display ---
 st.subheader("💬 Chatbot Interface")
+chat_placeholder = st.empty()
 
-chat_box_html = """
-<div id="chat-container" style="position: relative; height: 500px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
-  <div id="chat-history"></div>
-  <div style="position: sticky; bottom: 0; background: #fff; padding: 10px; display: flex;">
-    <input id="user-input" type="text" style="flex:1; padding:10px; border-radius:5px; border:1px solid #ccc;" placeholder="Type your message..."/>
-    <button id="send-btn" style="margin-left:5px; border:none; background:#007bff; color:#fff; padding:10px 15px; border-radius:50%;">➤</button>
-  </div>
-</div>
+def display_chat():
+    chat_html = ""
+    for msg in st.session_state.chat_history:
+        time = msg.get("time", "")
+        if msg["role"] == "user":
+            chat_html += f"""
+            <div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>
+                {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
+            </div>
+            """
+        else:
+            chat_html += f"""
+            <div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:5px; display:inline-block; max-width:80%;'>
+                {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
+            </div>
+            """
+    chat_placeholder.markdown(chat_html, unsafe_allow_html=True)
 
-<script>
-const sendBtn = document.getElementById("send-btn");
-const inputBox = document.getElementById("user-input");
-const chatHistory = document.getElementById("chat-history");
+display_chat()
 
-sendBtn.onclick = () => {
-    const message = inputBox.value,
-    if(message.trim() !== "") {
-        chatHistory.innerHTML += `<div style='text-align:right; background:#dcf8c6; padding:5px; margin:5px; border-radius:8px;'>${message}</div>`;
-        inputBox.value = "";
-        chatHistory.scrollTop = chatHistory.scrollHeight;
-    }
-};
+# --- Chat input using Streamlit form ---
+with st.form("chat_form", clear_on_submit=True):
+    user_input = st.text_input("Type your message...", key="user_input_box")
+    submitted = st.form_submit_button("➤")
+    
+    if submitted and user_input.strip():
+        st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
+        
+        # --- Prepare AI prompt ---
+        approaches_str = "\n".join(gsk_approaches)
+        flow_str = " → ".join(sales_call_flow)
 
-inputBox.addEventListener("keydown", function(e){
-    if(e.key === "Enter"){
-        sendBtn.click();
-        e.preventDefault();
-    }
-});
-</script>
-"""
-
-components.html(chat_box_html, height=550)
-
-# --- Temporary input to trigger Streamlit event ---
-user_input = st.text_input("Temporary input for Streamlit event trigger", key="user_input_trigger")
-if user_input.strip():
-    st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
-
-    approaches_str = "\n".join(gsk_approaches)
-    flow_str = " → ".join(sales_call_flow)
-
-    prompt = f"""
+        prompt = f"""
 Language: {language}
 User input: {user_input}
 RACE Segment: {segment}
@@ -172,42 +162,29 @@ Response Tone: {response_tone}
 Provide actionable suggestions tailored to this persona in a friendly and professional manner.
 """
 
-    response = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[
-            {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7
-    )
+        # --- Call Groq API ---
+        response = client.chat.completions.create(
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            messages=[
+                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
 
-    ai_output = response.choices[0].message.content
-    st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
-
-    # --- Word download ---
-    if DOCX_AVAILABLE:
-        doc = Document()
-        doc.add_heading("AI Sales Call Response", 0)
-        doc.add_paragraph(ai_output)
-        word_buffer = io_bytes()
-        doc.save(word_buffer)
-        st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
-
-# --- Display chat history in WhatsApp style ---
-for msg in st.session_state.chat_history:
-    time = msg["time"]
-    if msg["role"] == "user":
-        st.markdown(f"""
-        <div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>
-            {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:5px; display:inline-block; max-width:80%;'>
-            {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
-        </div>
-        """, unsafe_allow_html=True)
+        ai_output = response.choices[0].message.content
+        st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
+        
+        # --- Word download ---
+        if DOCX_AVAILABLE:
+            doc = Document()
+            doc.add_heading("AI Sales Call Response", 0)
+            doc.add_paragraph(ai_output)
+            word_buffer = io_bytes()
+            doc.save(word_buffer)
+            st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
+        
+        display_chat()
 
 # --- Brand leaflet ---
 st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
