@@ -42,11 +42,11 @@ logo_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo
 st.image(logo_url, width=150)
 st.title("🧠 AI Sales Call Assistant")
 
-# Brands + GitHub PDF URLs (raw)
+# Use public test PDF for all brands
 brand_pdfs = {
-    "Shingrix": "https://github.com/<username>/<Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf>/raw/main/Shingrix_leaflet.pdf",
-    "Trelegy": "https://raw.githubusercontent.com/yourusername/repo/main/Trelegy_leaflet.pdf",
-    "Zejula": "https://raw.githubusercontent.com/yourusername/repo/main/Zejula_leaflet.pdf"
+    "Shingrix": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf",
+    "Trelegy": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf",
+    "Zejula": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf"
 }
 
 # Filters
@@ -69,48 +69,45 @@ persona = st.sidebar.selectbox("Select HCP Persona", personas)
 response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
 response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Casual", "Friendly", "Persuasive"])
 
-# --- Robust PDF fetching ---
+# --- Fetch PDF content ---
 pdf_text = "No leaflet content available."
 pdf_images = []
 
 if PDF_AVAILABLE:
     try:
-        pdf_url = brand_pdfs.get(brand)
-        if not pdf_url:
-            st.warning(f"⚠️ No PDF URL defined for {brand}.")
-        else:
-            r = requests.get(pdf_url)
-            if r.status_code == 200:
-                pdf_file = BytesIO(r.content)
-                
-                # Extract text
-                try:
-                    reader = PyPDF2.PdfReader(pdf_file)
-                    pdf_text = ""
-                    for page in reader.pages:
-                        pdf_text += page.extract_text() + "\n"
-                    pdf_text = pdf_text[:6000]
-                except:
-                    st.warning(f"⚠️ Could not extract text from {brand} PDF.")
-                    pdf_text = "No leaflet text available."
+        pdf_url = brand_pdfs[brand]
+        r = requests.get(pdf_url)
+        if r.status_code == 200:
+            pdf_file = BytesIO(r.content)
+            
+            # Extract text
+            try:
+                reader = PyPDF2.PdfReader(pdf_file)
+                pdf_text = ""
+                for page in reader.pages:
+                    pdf_text += page.extract_text() + "\n"
+                pdf_text = pdf_text[:6000]
+            except:
+                st.warning(f"⚠️ Could not extract text from {brand} PDF.")
+                pdf_text = "No leaflet text available."
 
-                # Extract visuals
-                try:
-                    pdf_file.seek(0)
-                    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-                    for page_num in range(len(doc)):
-                        for img_index, img in enumerate(doc[page_num].get_images(full=True)):
-                            xref = img[0]
-                            base_image = doc.extract_image(xref)
-                            image_data = base_image["image"]
-                            pdf_images.append(Image.open(BytesIO(image_data)))
-                        if len(pdf_images) >= 3:
-                            break
-                except:
-                    st.warning(f"⚠️ Could not extract images from {brand} PDF.")
-                    pdf_images = []
-            else:
-                st.warning(f"⚠️ PDF not found (status code {r.status_code}).")
+            # Extract visuals
+            try:
+                pdf_file.seek(0)
+                doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+                for page_num in range(len(doc)):
+                    for img_index, img in enumerate(doc[page_num].get_images(full=True)):
+                        xref = img[0]
+                        base_image = doc.extract_image(xref)
+                        image_data = base_image["image"]
+                        pdf_images.append(Image.open(BytesIO(image_data)))
+                    if len(pdf_images) >= 3:
+                        break
+            except:
+                st.warning(f"⚠️ Could not extract images from {brand} PDF.")
+                pdf_images = []
+        else:
+            st.warning(f"⚠️ PDF not found (status code {r.status_code}).")
     except Exception as e:
         st.warning(f"⚠️ Error fetching PDF: {e}")
 
