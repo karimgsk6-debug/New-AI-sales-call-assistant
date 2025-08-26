@@ -2,221 +2,172 @@ import streamlit as st
 from PIL import Image
 import requests
 from io import BytesIO
+import groq
 from groq import Groq
 import streamlit.components.v1 as components
-import re
+import json
+from typing import Optional, Dict, Any, List
+from docx import Document
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from io import BytesIO
 
-# --- Hardcoded Groq API key (replace with your actual key) ---
-GROQ_API_KEY = "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"  # <-- Replace this with your Groq API key
-client = Groq(api_key="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")
+# --- Initialize Groq client ---
+client = Groq(api_key="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")  # Replace with your real key
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- Language selector ---
-language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
+if "user_input" not in st.session_state:
+    st.session_state.user_input = ""
 
-# --- GSK logo ---
-logo_local_path = "images/gsk_logo.png"
-logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
+# --- Title ---
+st.title("💊 AI Sales Call Assistant (APACT Model)")
 
-col1, col2 = st.columns([1, 5])
-with col1:
-    try:
-        logo_img = Image.open(logo_local_path)
-        st.image(logo_img, width=120)
-    except Exception:
-        st.image(logo_fallback_url, width=120)
-with col2:
-    st.title("🧠 AI Sales Call Assistant")
+# --- Filters ---
+brand = st.selectbox("Select Brand", ["Brand A", "Brand B", "Brand C"])
+segment = st.selectbox("Select HCP Segment", ["Rookie", "Engager", "Advocate", "Challenger"])
+persona = st.selectbox("Select HCP Persona", ["Scientific", "Practical", "Skeptical", "Open-Minded"])
+barriers = st.multiselect("Select HCP Barriers", ["Lack of awareness", "Trust issues", "Preference for competitors", "Cost concerns"])
 
-# --- Brands ---
-gsk_brands = {
-    "Trelegy": "https://example.com/trelegy-leaflet",
-    "Shingrix": "https://example.com/shingrix-leaflet",
-    "Zejula": "https://example.com/zejula-leaflet",
-}
-gsk_brands_images = {
-    "Trelegy": "https://www.example.com/trelegy.png",
-    "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
-    "Zejula": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
-}
+tone = st.selectbox("Response Tone", ["Short & Formal", "Short & Casual", "Long & Formal", "Long & Casual"])
+language = st.selectbox("Language", ["English", "Arabic"])
 
-# --- RACE Segmentation ---
-race_segments = [
-    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
-    "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine but Convinced about Shingrix data.",
-    "C – Conversion: Proactively initiate discussion with specific patient profile but For other patient profiles he is not prescribing yet.",
-    "E – Engagement: Proactively prescribe to different patient profiles"
-]
+# --- APACT Technique Helper ---
+def format_apact_response(response_text: str, lang: str) -> str:
+    if lang == "Arabic":
+        return f"""
+✅ **Acknowledge (الاعتراف):** {response_text}
 
-# --- Doctor Barriers ---
-doctor_barriers = [
-    "1 - HCP does not consider HZ as risk for the selected patient profile",
-    "2 - HCP thinks there is no time to discuss preventive measures with the patients",
-    "3 - HCP thinks about cost considerations",
-    "4 - HCP is not convinced that HZ Vx is effective in reducing the burden",
-    "5 - Accessibility (POVs)"
-]
+🔍 **Probing (الاستقصاء):** [اسأل سؤالًا لفهم موقف الطبيب]
 
-# --- Other filters ---
-objectives = ["Awareness", "Adoption", "Retention"]
-specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
+💡 **Answer (الإجابة):** [قدّم استجابة مقنعة]
 
-# --- HCP Personas ---
-personas = [
-    "Uncommitted Vaccinator – Not engaged, poor knowledge, least likely to prescribe vaccines (26%)",
-    "Reluctant Efficiency – Do not see vaccinating 50+ as part of role, least likely to believe in impact (12%)",
-    "Patient Influenced – Aware of benefits but prescribes only if patient requests (26%)",
-    "Committed Vaccinator – Very positive, motivated, prioritizes vaccination & sets example (36%)"
-]
+✅ **Confirm (التأكيد):** [تحقق من موافقة الطبيب]
 
-# --- Approved sales approaches ---
-gsk_approaches = [
-    "Use data-driven evidence",
-    "Focus on patient outcomes",
-    "Leverage storytelling techniques",
-]
-
-# --- Sales Call Flow ---
-sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
-
-# --- Sidebar Filters ---
-st.sidebar.header("Filters & Options")
-brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
-segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
-objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
-specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
-persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
-
-# --- AI Response Customization ---
-response_length_options = ["Short", "Medium", "Long"]
-response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
-response_length = st.sidebar.selectbox("Select Response Length / اختر طول الرد", response_length_options)
-response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options)
-
-# --- Interface Mode ---
-interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
-
-# --- Load brand image safely ---
-image_path = gsk_brands_images.get(brand)
-try:
-    if image_path.startswith("http"):
-        response = requests.get(image_path)
-        img = Image.open(BytesIO(response.content))
+🔄 **Transition (الانتقال):** [انتقل إلى النقطة التالية]
+"""
     else:
-        img = Image.open(image_path)
-    st.image(img, width=200)
-except Exception:
-    st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
-    st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
+        return f"""
+✅ **Acknowledge:** {response_text}
 
-# --- Clear chat button ---
-if st.button("🗑️ Clear Chat / مسح المحادثة"):
-    st.session_state.chat_history = []
+🔍 **Probing:** [Ask a question to understand HCP’s perspective]
 
-# --- Chat container ---
-chat_container = st.container()
-placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
-user_input = st.text_area(placeholder_text, key="user_input", height=80)
+💡 **Answer:** [Provide a clear and convincing response]
 
-# --- Function to highlight ABACT ---
-def highlight_abac(text):
-    colors = {
-        "Acknowledge": "#FFDDC1",
-        "Probing": "#FFFACD",
-        "Answer": "#C1FFD7",
-        "Confirm": "#D1D1FF"
-        "Transition": "#B1B1FF"
-    }
-    for step, color in colors.items():
-        # Highlight step name and its content
-        text = re.sub(
-            fr"({step}:.*?)(?=(Acknowledge|Probing|Action|Commitment|$))",
-            lambda m: f"<div style='background:{color}; padding:8px; border-radius:6px; margin:5px 0;'>{m.group(1)}</div>",
-            text,
-            flags=re.DOTALL | re.IGNORECASE
-        )
-    return text
+✅ **Confirm:** [Check HCP’s agreement]
 
-# --- Send button with ABAC integrated ---
-if st.button("🚀 Send / أرسل") and user_input.strip():
-    with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
-
-        approaches_str = "\n".join(gsk_approaches)
-        flow_str = " → ".join(sales_call_flow)
-
-        prompt = f"""
-Language: {language}
-You are an expert GSK sales assistant. 
-User input: {user_input}
-RACE Segment: {segment}
-Doctor Barrier: {', '.join(barrier) if barrier else 'None'}
-Objective: {objective}
-Brand: {brand}
-Doctor Specialty: {specialty}
-HCP Persona: {persona}
-Approved GSK Sales Approaches:
-{approaches_str}
-Sales Call Flow Steps:
-{flow_str}
-
-Instructions for AI:
-- Handle all objections using ABAC (Acknowledge → Probing → Action → Commitment).
-- Provide ready-to-use phrasing that the sales rep can say during the call.
-- Clearly label each step (Acknowledge, Probing, Action, Commitment).
-- Tailor responses to persona, selected tone ({response_tone}), and length ({response_length}).
+🔄 **Transition:** [Move to the next discussion step]
 """
 
+# --- Chatbot UI ---
+st.subheader("💬 Discussion")
+
+for i, (role, message) in enumerate(st.session_state.chat_history):
+    if role == "user":
+        st.markdown(f"👤 **You:** {message}")
+    else:
+        st.markdown(f"🤖 **Assistant:** {message}")
+
+# --- Input box ---
+placeholder_text = "Type your question or objection here..."
+user_input = st.text_area(
+    placeholder_text,
+    key="chat_input",
+    height=80,
+    value=st.session_state.user_input
+)
+
+# --- Send button ---
+if st.button("Send"):
+    if user_input.strip():
+        # Add user input to history
+        st.session_state.chat_history.append(("user", user_input))
+
         # Call Groq API
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
+        prompt = f"""
+        Brand: {brand}
+        Segment: {segment}
+        Persona: {persona}
+        Barriers: {", ".join(barriers)}
+        Tone: {tone}
+        Language: {language}
 
-        ai_output = response.choices[0].message.content
-        st.session_state.chat_history.append({"role": "ai", "content": ai_output})
+        User said: {user_input}
 
-# --- Display chat history with ABAC highlighting ---
-with chat_container:
-    if interface_mode == "Chatbot":
-        st.subheader("💬 Chatbot Interface")
-        for msg in st.session_state.chat_history:
-            if msg["role"] == "user":
-                st.markdown(f"<div style='text-align:right; background:#d1e7dd; padding:10px; border-radius:12px; margin:10px 0;'>{msg['content']}</div>", unsafe_allow_html=True)
-            else:
-                highlighted = highlight_abac(msg["content"])
-                st.markdown(highlighted, unsafe_allow_html=True)
-
-    elif interface_mode == "Card Dashboard":
-        st.subheader("📊 Card-Based Dashboard")
-        segments_list = ["Evidence-Seeker", "Skeptic", "Time-Pressured"]
-        for seg in segments_list:
-            with st.expander(f"{seg} Segment"):
-                st.write(f"Suggested approach for {seg} with {', '.join(barrier) if barrier else 'None'} barriers selected.")
-                st.progress(70)
-                st.button(f"Next Suggestion for {seg}")
-
-    elif interface_mode == "Flow Visualization":
-        st.subheader("🔗 HCP Engagement Flow")
-        html_content = f"""
-        <div style='font-family:sans-serif; background:#f0f2f6; padding:20px; border-radius:10px;'>
-            <h3>{persona} Segment</h3>
-            <p><b>Behavior:</b> {', '.join(barrier) if barrier else 'None'}</p>
-            <p><b>Brand:</b> {brand}</p>
-            <p><b>Sales Flow:</b> {" → ".join(sales_call_flow)}</p>
-            <p><b>Tone:</b> {response_tone}</p>
-            <p><b>AI Suggestion:</b> ABAC objection handling phrasing generated by AI here...</p>
-        </div>
+        Respond using APACT model.
         """
-        components.html(html_content, height=300)
 
-# --- Brand leaflet ---
-st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
+        try:
+            response = client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.1-70b-versatile"
+            )
+
+            ai_reply = response.choices[0].message.content
+            formatted_reply = format_apact_response(ai_reply, language)
+
+            # Add assistant response to history
+            st.session_state.chat_history.append(("assistant", formatted_reply))
+
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
+
+        # Clear input after sending
+        st.session_state.user_input = ""
+        st.rerun()
+
+# --- Start new discussion button ---
+if st.button("🆕 Start New Discussion"):
+    st.session_state.chat_history = []
+    st.session_state.user_input = ""
+    st.rerun()
+
+# --- Download options ---
+st.subheader("📥 Download Conversation")
+
+def export_to_word(history):
+    doc = Document()
+    doc.add_heading("AI Sales Call Assistant - APACT Conversation", 0)
+    for role, message in history:
+        if role == "user":
+            doc.add_paragraph(f"You: {message}", style="Normal")
+        else:
+            doc.add_paragraph(f"Assistant:\n{message}", style="Normal")
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+def export_to_ppt(history):
+    prs = Presentation()
+    title_slide_layout = prs.slide_layouts[0]
+    slide = prs.slides.add_slide(title_slide_layout)
+    slide.shapes.title.text = "AI Sales Call Assistant"
+    slide.placeholders[1].text = "APACT Conversation Export"
+
+    for role, message in history:
+        slide_layout = prs.slide_layouts[1]
+        slide = prs.slides.add_slide(slide_layout)
+        slide.shapes.title.text = f"{role.capitalize()}"
+        slide.placeholders[1].text = message
+
+    buffer = BytesIO()
+    prs.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.session_state.chat_history:
+        word_file = export_to_word(st.session_state.chat_history)
+        st.download_button("⬇️ Download as Word", data=word_file,
+                           file_name="APACT_Conversation.docx", mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+with col2:
+    if st.session_state.chat_history:
+        ppt_file = export_to_ppt(st.session_state.chat_history)
+        st.download_button("⬇️ Download as PPT", data=ppt_file,
+                           file_name="APACT_Conversation.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
