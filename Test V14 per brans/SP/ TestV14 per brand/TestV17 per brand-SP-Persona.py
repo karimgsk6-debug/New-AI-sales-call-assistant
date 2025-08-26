@@ -5,6 +5,7 @@ from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 from datetime import datetime
+import fitz  # PyMuPDF for robust PDF text + images
 
 # Optional Word download
 try:
@@ -14,17 +15,8 @@ except ImportError:
     DOCX_AVAILABLE = False
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
-# Optional PDF libraries
-try:
-    import PyPDF2
-    import fitz  # PyMuPDF
-    PDF_AVAILABLE = True
-except ImportError:
-    PDF_AVAILABLE = False
-    st.warning("⚠️ PyPDF2 or PyMuPDF not installed. PDF features disabled.")
-
 # Groq client
-client = Groq(api_key="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")  # replace with your key
+client = Groq(api_key="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")  # replace with your Groq API key
 
 # Session state
 if "chat_history" not in st.session_state:
@@ -42,7 +34,7 @@ logo_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo
 st.image(logo_url, width=150)
 st.title("🧠 AI Sales Call Assistant")
 
-# Use public test PDF for all brands
+# Public test PDF URLs
 brand_pdfs = {
     "Shingrix": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf",
     "Trelegy": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf",
@@ -69,47 +61,36 @@ persona = st.sidebar.selectbox("Select HCP Persona", personas)
 response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
 response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Casual", "Friendly", "Persuasive"])
 
-# --- Fetch PDF content ---
+# --- Fetch PDF content using PyMuPDF ---
 pdf_text = "No leaflet content available."
 pdf_images = []
 
-if PDF_AVAILABLE:
-    try:
-        pdf_url = brand_pdfs[brand]
-        r = requests.get(pdf_url)
-        if r.status_code == 200:
-            pdf_file = BytesIO(r.content)
-            
-            # Extract text
-            try:
-                reader = PyPDF2.PdfReader(pdf_file)
-                pdf_text = ""
-                for page in reader.pages:
-                    pdf_text += page.extract_text() + "\n"
-                pdf_text = pdf_text[:6000]
-            except:
-                st.warning(f"⚠️ Could not extract text from {brand} PDF.")
-                pdf_text = "No leaflet text available."
+try:
+    pdf_url = brand_pdfs[brand]
+    r = requests.get(pdf_url)
+    if r.status_code == 200:
+        pdf_file = BytesIO(r.content)
+        doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
 
-            # Extract visuals
-            try:
-                pdf_file.seek(0)
-                doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-                for page_num in range(len(doc)):
-                    for img_index, img in enumerate(doc[page_num].get_images(full=True)):
-                        xref = img[0]
-                        base_image = doc.extract_image(xref)
-                        image_data = base_image["image"]
-                        pdf_images.append(Image.open(BytesIO(image_data)))
-                    if len(pdf_images) >= 3:
-                        break
-            except:
-                st.warning(f"⚠️ Could not extract images from {brand} PDF.")
-                pdf_images = []
-        else:
-            st.warning(f"⚠️ PDF not found (status code {r.status_code}).")
-    except Exception as e:
-        st.warning(f"⚠️ Error fetching PDF: {e}")
+        # Extract text
+        pdf_text = ""
+        for page in doc:
+            pdf_text += page.get_text() + "\n"
+        pdf_text = pdf_text[:6000]  # Limit to 6000 characters
+
+        # Extract images (first 3)
+        for page in doc:
+            for img_index, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_data = base_image["image"]
+                pdf_images.append(Image.open(BytesIO(image_data)))
+            if len(pdf_images) >= 3:
+                break
+    else:
+        st.warning(f"⚠️ PDF not found (status code {r.status_code}).")
+except Exception as e:
+    st.warning(f"⚠️ Error fetching PDF: {e}")
 
 st.session_state.pdf_text = pdf_text
 st.session_state.pdf_images = pdf_images
