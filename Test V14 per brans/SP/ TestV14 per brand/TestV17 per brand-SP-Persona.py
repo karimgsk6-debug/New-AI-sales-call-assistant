@@ -1,168 +1,328 @@
+# app.py
+import os
+import re
+import base64
+from io import BytesIO
+from datetime import datetime
+from pathlib import Path
+
 import streamlit as st
 from PIL import Image
-from io import BytesIO
-import groq
-from groq import Groq
-from datetime import datetime
-import os
-import pathlib
 
-# --- Word export ---
+# --- Optional deps (graceful fallback if missing) ---
 try:
     from docx import Document
-    DOCX_AVAILABLE = True
-except ImportError:
-    DOCX_AVAILABLE = False
-    st.warning("⚠️ python-docx not installed. Word download unavailable.")
+    DOCX_OK = True
+except Exception:
+    DOCX_OK = False
 
-# --- Groq client ---
-client = Groq(api_key="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")  # Add your Groq API key here
+try:
+    from groq import Groq
+    GROQ_OK = True
+except Exception:
+    GROQ_OK = False
 
-# --- Base directory for relative paths ---
-BASE_DIR = pathlib.Path(__file__).parent
+# =========================
+# Configuration & Constants
+# =========================
+st.set_page_config(page_title="AI Sales Call Assistant", layout="wide")
 
-# --- Session state ---
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+BASE_DIR = Path(__file__).parent
 
-# --- Language ---
-language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
-
-# --- GSK Logo ---
-logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
-col1, col2 = st.columns([1,5])
-with col1:
-    st.image(logo_fallback_url, width=120)
-with col2:
-    st.title("🧠 AI Sales Call Assistant")
-
-# --- Brand assets ---
-gsk_brands = ["Shingrix", "Trelegy", "Zejula"]
-brand_pdfs = {
-    "Shingrix": BASE_DIR / "assets/PDFs/Shingrix.pdf",
-    "Trelegy": BASE_DIR / "assets/PDFs/Trelegy.pdf",
-    "Zejula": BASE_DIR / "assets/PDFs/Zejula.pdf",
-}
-brand_visuals = {
-    "Shingrix": BASE_DIR / "assets/Images/Shingrix_chart.png",
-    "Trelegy": BASE_DIR / "assets/Images/Trelegy_diagram.png",
-    "Zejula": BASE_DIR / "assets/Images/Zejula_flow.png",
+# Brand PDFs
+BRAND_PDFS = {
+    "Shingrix": BASE_DIR / "assets" / "PDFs" / "Shingrix.pdf",
+    "Trelegy":  BASE_DIR / "assets" / "PDFs" / "Trelegy.pdf",
+    "Zejula":   BASE_DIR / "assets" / "PDFs" / "Zejula.pdf",
 }
 
-# --- Filters ---
-race_segments = ["R – Reach", "A – Acquisition", "C – Conversion", "E – Engagement"]
-doctor_barriers = ["HCP does not consider HZ as risk","No time to discuss preventive measures",
-                   "Cost considerations","Not convinced HZ Vx effective","Accessibility issues"]
-objectives = ["Awareness", "Adoption", "Retention"]
-specialties = ["GP", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
-personas = ["Uncommitted Vaccinator","Reluctant Efficiency","Patient Influenced","Committed Vaccinator"]
-gsk_approaches = ["Use data-driven evidence","Focus on patient outcomes","Leverage storytelling techniques"]
-sales_call_flow = ["Prepare","Engage","Create Opportunities","Influence","Drive Impact","Post Call Analysis"]
+# Visual library per brand (keywords → image path)
+VISUALS = {
+    "Shingrix": {
+        "cost":       BASE_DIR / "assets" / "Visuals" / "Shingrix" / "cost_benefit.png",
+        "efficacy":   BASE_DIR / "assets" / "Visuals" / "Shingrix" / "efficacy_chart.png",
+        "safety":     BASE_DIR / "assets" / "Visuals" / "Shingrix" / "safety_profile.png",
+        "adherence":  BASE_DIR / "assets" / "Visuals" / "Shingrix" / "adherence_curve.png",
+    },
+    "Trelegy": {
+        "cost":       BASE_DIR / "assets" / "Visuals" / "Trelegy" / "cost_benefit.png",
+        "efficacy":   BASE_DIR / "assets" / "Visuals" / "Trelegy" / "efficacy_chart.png",
+        "safety":     BASE_DIR / "assets" / "Visuals" / "Trelegy" / "safety_profile.png",
+        "adherence":  BASE_DIR / "assets" / "Visuals" / "Trelegy" / "adherence_curve.png",
+    },
+    "Zejula": {
+        "cost":       BASE_DIR / "assets" / "Visuals" / "Zejula" / "cost_benefit.png",
+        "efficacy":   BASE_DIR / "assets" / "Visuals" / "Zejula" / "efficacy_chart.png",
+        "safety":     BASE_DIR / "assets" / "Visuals" / "Zejula" / "safety_profile.png",
+        "adherence":  BASE_DIR / "assets" / "Visuals" / "Zejula" / "adherence_curve.png",
+    },
+}
 
-# --- Sidebar ---
-st.sidebar.header("Filters & Options")
-brand = st.sidebar.selectbox("Select Brand", options=gsk_brands)
-segment = st.sidebar.selectbox("Select RACE Segment", race_segments)
-barrier = st.sidebar.multiselect("Select Doctor Barrier", doctor_barriers)
-objective = st.sidebar.selectbox("Select Objective", objectives)
-specialty = st.sidebar.selectbox("Select Doctor Specialty", specialties)
-persona = st.sidebar.selectbox("Select HCP Persona", personas)
-response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
-response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Casual", "Friendly", "Persuasive"])
+HCP_SEGMENTS = [
+    "R – Reach",
+    "A – Acquisition",
+    "C – Conversion",
+    "E – Engagement",
+]
 
-# --- Clear chat ---
-if st.button("🗑️ Clear Chat"):
-    st.session_state.chat_history = []
+HCP_PERSONAS = [
+    "Uncommitted Vaccinator – Not engaged, poor knowledge, least likely to prescribe vaccines (26%)",
+    "Reluctant Efficiency – Do not see vaccinating 50+ as part of role, least likely to believe in impact (12%)",
+    "Patient Influenced – Aware of benefits but prescribes only if patient requests (26%)",
+    "Committed Vaccinator – Very positive, motivated, prioritizes vaccination & sets example (36%)"
+]
 
-# --- Chat display ---
-st.subheader("💬 Chatbot Interface")
-chat_placeholder = st.empty()
+DOCTOR_BARRIERS = [
+    "Cost",
+    "Efficacy",
+    "Safety",
+    "Adherence",
+    "Time constraints",
+    "Risk perception (patient not at risk)",
+    "Access / logistics",
+]
 
-def display_chat():
-    chat_html = ""
-    for msg in st.session_state.chat_history:
-        time = msg.get("time","")
-        content = msg["content"].replace("\n","<br>")
-        # Bold APACT steps
-        apact_steps = ["Acknowledge","Probing","Answer","Confirm","Transition"]
-        for step in apact_steps:
-            content = content.replace(step,f"<b>{step}</b><br>")
-        if msg["role"]=="user":
-            chat_html += f"<div style='text-align:right;background:#dcf8c6;padding:10px;border-radius:15px;margin:5px;display:inline-block;max-width:80%'>{content}<br><span style='font-size:10px;color:gray;'>{time}</span></div>"
-        else:
-            chat_html += f"<div style='text-align:left;background:#f0f2f6;padding:10px;border-radius:15px;margin:5px;display:inline-block;max-width:80%'>{content}<br><span style='font-size:10px;color:gray;'>{time}</span></div>"
-    chat_placeholder.markdown(chat_html, unsafe_allow_html=True)
+SALES_CALL_FLOW = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
-display_chat()
+# ======================
+# Utilities / Formatting
+# ======================
+def bold_and_separate_apact(text: str) -> str:
+    """
+    Ensures APACT step headers are bold + separated lines.
+    If already present, it just strengthens formatting.
+    """
+    # Normalize newlines
+    t = text.replace("\r\n", "\n")
 
-# --- Chat input ---
+    # Add line breaks after headers and ensure bold
+    steps = ["Acknowledge", "Probing", "Answer", "Confirm", "Transition"]
+    for step in steps:
+        # Make header bold and ensure it starts on its own line
+        t = re.sub(rf"(?i)\b{step}\b\s*:?","**"+step+"**:\n", t)
+
+    # Ensure a clear blank line between steps
+    for step in steps:
+        t = t.replace(f"**{step}**:\n", f"**{step}**:\n")
+
+    return t
+
+def embed_pdf(pdf_path: Path, height: int = 520):
+    if pdf_path and pdf_path.exists():
+        with open(pdf_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        st.markdown(
+            f'<iframe src="data:application/pdf;base64,{b64}" '
+            f'width="100%" height="{height}" type="application/pdf"></iframe>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning(f"⚠️ PDF not found at: {pdf_path}")
+
+def pick_visual_keywords(ai_text: str, selected_barriers: list[str]) -> set[str]:
+    """
+    Collect visual keywords from AI text and user-selected barriers.
+    """
+    text = (ai_text or "").lower()
+    keys = set()
+
+    # From AI response content
+    for kw in ["cost", "efficacy", "safety", "adherence"]:
+        if kw in text:
+            keys.add(kw)
+
+    # From barriers
+    for b in selected_barriers:
+        b_low = b.lower()
+        if "cost" in b_low:
+            keys.add("cost")
+        if "efficacy" in b_low:
+            keys.add("efficacy")
+        if "safety" in b_low:
+            keys.add("safety")
+        if "adherence" in b_low:
+            keys.add("adherence")
+
+    return keys
+
+def groq_generate_apact_reply(client, payload: str) -> str:
+    """
+    Calls Groq; if not configured/available, returns a safe APACT template.
+    """
+    try:
+        resp = client.chat.completions.create(
+            model="llama-3.1-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You are a helpful, compliant pharma sales assistant. Use APACT for objections."},
+                {"role": "user", "content": payload}
+            ],
+            temperature=0.6
+        )
+        content = resp.choices[0].message["content"]
+        return content
+    except Exception as e:
+        # Fallback APACT template
+        return (
+            "**Acknowledge**:\n"
+            "I understand this is an important consideration for your practice.\n\n"
+            "**Probing**:\n"
+            "Could you share what specifically concerns you most—cost to patients, comparative efficacy, or safety in certain profiles?\n\n"
+            "**Answer**:\n"
+            "Based on the core evidence and label, the product addresses these points by… (insert brand PDF data and approved claims).\n\n"
+            "**Confirm**:\n"
+            "Does this address the main concern for your typical patient population?\n\n"
+            "**Transition**:\n"
+            "If so, we can discuss a simple way to identify eligible patients and streamline the next steps."
+        )
+
+# ======================
+# Sidebar / Top Controls
+# ======================
+st.title("🧠 AI Sales Call Assistant")
+
+top1, top2, top3, top4 = st.columns([2, 2, 2, 2])
+with top1:
+    brand = st.selectbox("Product", list(BRAND_PDFS.keys()))
+with top2:
+    segment = st.selectbox("RACE Segment", HCP_SEGMENTS)
+with top3:
+    persona = st.selectbox("HCP Persona", HCP_PERSONAS)
+with top4:
+    barriers = st.multiselect("Barriers", DOCTOR_BARRIERS, default=[])
+
+# Store chat in session
+if "chat" not in st.session_state:
+    st.session_state.chat = []  # list of dicts: {"role": "user"/"ai", "content": "...", "time": "HH:MM"}
+
+# ======================
+# Chat UI (WhatsApp-ish)
+# ======================
+st.markdown("### 💬 Chat")
+
 with st.form("chat_form", clear_on_submit=True):
-    user_input = st.text_input("Type your message...")
-    submitted = st.form_submit_button("➤")
+    c1, c2 = st.columns([12, 1])
+    user_msg = c1.text_input("Type your message…", key="chat_input")
+    sent = c2.form_submit_button("➤")  # send icon button
 
-if submitted and user_input.strip():
-    st.session_state.chat_history.append({"role":"user","content":user_input,"time":datetime.now().strftime("%H:%M")})
+if sent and user_msg.strip():
+    st.session_state.chat.append({"role": "user", "content": user_msg, "time": datetime.now().strftime("%H:%M")})
 
-    approaches_str = "\n".join(gsk_approaches)
-    flow_str = " → ".join(sales_call_flow)
-
+    # Build prompt for Groq (APACT enforced)
     prompt = f"""
-Language: {language}
-User input: {user_input}
-RACE Segment: {segment}
-Doctor Barrier: {', '.join(barrier) if barrier else 'None'}
-Objective: {objective}
 Brand: {brand}
-Doctor Specialty: {specialty}
+RACE Segment: {segment}
 HCP Persona: {persona}
-Approved Sales Approaches:
-{approaches_str}
-Sales Call Flow Steps:
-{flow_str}
-Use APACT (Acknowledge → Probing → Answer → Confirm → Transition) technique for handling objections.
-Refer to PDF: {brand_pdfs[brand]}
-Use visual guide: {brand_visuals[brand]}
-Response Length: {response_length}
-Response Tone: {response_tone}
-Provide actionable suggestions tailored to this persona in a friendly and professional manner.
+Barriers: {", ".join(barriers) if barriers else "None"}
+
+User message: {user_msg}
+
+Requirements:
+- Use APACT (Acknowledge → Probing → Answer → Confirm → Transition).
+- Put each APACT step on its own line with the step name in ALL CAPS or Title Case at the start.
+- Keep content compliant and non-promotional; only use on-label, approved claims that would exist in the brand PDF.
+- Keep it concise and practical for a live sales call.
 """
 
-    response = client.chat.completions.create(
-        model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role":"system","content":f"You are a helpful sales assistant chatbot in {language}."},
-                  {"role":"user","content":prompt}],
-        temperature=0.7
+    # Create Groq client if possible
+    ai_text_raw = None
+    if GROQ_OK and os.getenv("GROQ_API_KEY", "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"):
+        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        ai_text_raw = groq_generate_apact_reply(client, prompt)
+    else:
+        ai_text_raw = groq_generate_apact_reply(None, prompt)
+
+    # Post-process to ensure APACT formatting is bold + separated
+    ai_text = bold_and_separate_apact(ai_text_raw)
+    st.session_state.chat.append({"role": "ai", "content": ai_text, "time": datetime.now().strftime("%H:%M")})
+
+# Render chat bubbles
+bubble_html = ""
+for m in st.session_state.chat:
+    content_html = m["content"].replace("\n", "<br>")
+    if m["role"] == "user":
+        bubble_html += f"""
+        <div style='text-align:right; background:#dcf8c6; padding:10px;
+        border-radius:15px; margin:6px; display:inline-block; max-width:85%'>
+          {content_html}<br>
+          <span style='font-size:10px;color:#667'>{m["time"]}</span>
+        </div><br>
+        """
+    else:
+        bubble_html += f"""
+        <div style='text-align:left; background:#f0f2f6; padding:12px;
+        border-radius:15px; margin:6px; display:inline-block; max-width:85%'>
+          {content_html}<br>
+          <span style='font-size:10px;color:#667'>{m["time"]}</span>
+        </div><br>
+        """
+st.markdown(bubble_html, unsafe_allow_html=True)
+
+# ======================
+# PDF Preview (Embedded)
+# ======================
+st.markdown("### 📄 Product PDF")
+embed_pdf(BRAND_PDFS[brand])
+
+# ======================
+# Dynamic Visual Aids (below PDF)
+# ======================
+st.markdown("### 🖼️ Relevant Visual Aids")
+last_ai_msg = next((m["content"] for m in reversed(st.session_state.chat) if m["role"] == "ai"), "")
+wanted = pick_visual_keywords(last_ai_msg, barriers)
+
+brand_visuals = VISUALS.get(brand, {})
+shown_any = False
+
+# If no keywords detected yet (e.g., first message), you can default to efficacy & safety
+if not wanted:
+    wanted = {"efficacy", "safety"}
+
+# Show each relevant visual if it exists
+cols = st.columns(2)
+i = 0
+for kw in sorted(wanted):
+    img_path = brand_visuals.get(kw)
+    if img_path and img_path.exists():
+        with cols[i % 2]:
+            try:
+                st.image(str(img_path), caption=f"{brand} – {kw.capitalize()} Aid", use_container_width=True)
+                shown_any = True
+            except Exception:
+                st.warning(f"⚠️ Could not render image: {img_path.name}")
+        i += 1
+
+if not shown_any:
+    st.info("No relevant visuals available for this context. Add images to the brand’s Visuals folder to enable this panel.")
+
+# ======================
+# Word Download (outside form)
+# ======================
+st.markdown("---")
+if DOCX_OK and st.session_state.chat:
+    doc = Document()
+    doc.add_heading("AI Sales Call Assistant", 0)
+    doc.add_paragraph(f"Brand: {brand}")
+    doc.add_paragraph(f"RACE Segment: {segment}")
+    doc.add_paragraph(f"HCP Persona: {persona}")
+    doc.add_paragraph("Barriers: " + (", ".join(barriers) if barriers else "None"))
+    doc.add_paragraph("Sales Call Flow: " + " → ".join(SALES_CALL_FLOW))
+
+    doc.add_heading("Conversation", level=1)
+    for m in st.session_state.chat:
+        doc.add_heading(("User" if m["role"] == "user" else "AI") + f" ({m['time']})", level=2)
+        doc.add_paragraph(m["content"])
+
+    # Save to buffer
+    word_buf = BytesIO()
+    doc.save(word_buf)
+    word_buf.seek(0)
+
+    st.download_button(
+        "📥 Download as Word (.docx)",
+        data=word_buf.getvalue(),
+        file_name=f"{brand}_Sales_Call_{datetime.now().strftime('%Y%m%d_%H%M')}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
-    ai_output = response.choices[0].message.content
-    st.session_state.chat_history.append({"role":"ai","content":ai_output,"time":datetime.now().strftime("%H:%M")})
-    display_chat()
-
-# --- PDF download & visual with BASE_DIR ---
-pdf_path = brand_pdfs[brand]
-if pdf_path.exists():
-    with open(pdf_path,"rb") as f:
-        st.download_button(f"📄 Download {brand} PDF", data=f, file_name=f"{brand}.pdf")
 else:
-    st.warning(f"⚠️ PDF for {brand} not found at {pdf_path}")
-
-img_path = brand_visuals[brand]
-if img_path.exists():
-    try:
-        img = Image.open(img_path)
-        st.image(img, width=400, caption=f"{brand} Visual Guide")
-    except:
-        st.warning(f"⚠️ Could not load visual for {brand}")
-else:
-    st.warning(f"⚠️ Visual for {brand} not found at {img_path}")
-
-# --- Word download ---
-if DOCX_AVAILABLE and st.session_state.chat_history:
-    latest_ai = [msg["content"] for msg in st.session_state.chat_history if msg["role"]=="ai"]
-    if latest_ai:
-        from io import BytesIO as io_bytes
-        doc = Document()
-        doc.add_heading("AI Sales Call Response",0)
-        doc.add_paragraph(latest_ai[-1])
-        word_buffer = io_bytes()
-        doc.save(word_buffer)
-        st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
+    if not DOCX_OK:
+        st.warning("⚠️ python-docx not installed — Word export disabled. Install with: pip install python-docx")
