@@ -126,7 +126,7 @@ const inputBox = document.getElementById("user-input");
 const chatHistory = document.getElementById("chat-history");
 
 sendBtn.onclick = () => {
-    const message = inputBox.value;
+    const message = inputBox.value,
     if(message.trim() !== "") {
         chatHistory.innerHTML += `<div style='text-align:right; background:#dcf8c6; padding:5px; margin:5px; border-radius:8px;'>${message}</div>`;
         inputBox.value = "";
