@@ -1,156 +1,137 @@
 import os
 import streamlit as st
-from PIL import Image
-import requests
-from io import BytesIO
 from groq import Groq
-import streamlit.components.v1 as components
-import json
-from typing import Optional, Dict, Any, List
 from docx import Document
 from pptx import Presentation
 from pptx.util import Inches, Pt
+from io import BytesIO
 
-# =========================
-# Load Groq API Key
-# =========================
-def get_groq_api_key():
-    if "GROQ_API_KEY" in st.secrets:
-        return st.secrets["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"]
-    elif os.getenv("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"):
-        return os.getenv("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")
-    else:
-        st.error("❌ Groq API key not found. Please set it in Streamlit Secrets or as an environment variable 'GROQ_API_KEY'.")
-        st.stop()
+# --- Disclaimer ---
+st.markdown(
+    "⚠️ **Disclaimer:** This assistant tool is designed to help tailor a sales call "
+    "and support interactions with different customer types. It is not a replacement "
+    "for your own judgment, compliance rules, or medical guidance."
+)
 
-api_key = get_groq_api_key()
-client = Groq(api_key=api_key)
+# --- Groq API Key Handling ---
+api_key = os.getenv("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")
+if not api_key:
+    st.warning("⚠️ Groq API key not found. Please enter it below to continue.")
+    api_key = st.text_input("Enter your Groq API Key:", type="password")
 
-# =========================
-# Session State
-# =========================
+client = None
+if api_key:
+    try:
+        client = Groq(api_key=api_key)
+        st.success("✅ Groq API key loaded successfully!")
+    except Exception as e:
+        st.error(f"❌ Failed to initialize Groq client: {e}")
+
+# --- Initialize session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "user_input" not in st.session_state:
     st.session_state.user_input = ""
+if "response" not in st.session_state:
+    st.session_state.response = ""
 
-# =========================
-# UI Disclaimer
-# =========================
-st.markdown(
-    """
-    ⚠️ **Disclaimer:**  
-    This is an **assistant tool** designed to support sales reps in tailoring sales calls and managing different customer types.  
-    It is not a substitute for medical, legal, or compliance-approved materials. Always follow company guidelines.
-    """,
-    unsafe_allow_html=True
-)
+# --- Filters ---
+st.sidebar.header("🎯 Customize the Sales Call")
 
-# =========================
-# Filters
-# =========================
-brand = st.selectbox("Select Brand", ["", "Brand A", "Brand B", "Brand C"])
-segment = st.selectbox("Select Segment (RACE)", ["", "Reach", "Act", "Convert", "Engage"])
-persona = st.selectbox("Select HCP Persona", ["", "Skeptical", "Open-minded", "Busy", "Detail-oriented"])
-barriers = st.multiselect("Select Barriers", ["Knowledge", "Cost concerns", "Trust", "Time", "Other"])
-tone = st.selectbox("Select Response Tone", ["", "Short & Formal", "Short & Casual", "Long & Formal", "Long & Casual"])
+brand = st.sidebar.selectbox("Select Brand:", ["", "Brand A", "Brand B", "Brand C"])
+segment = st.sidebar.selectbox("Select Segment (RACE):", ["", "React", "Act", "Convert", "Engage"])
+persona = st.sidebar.selectbox("Select Persona:", ["", "Skeptical", "Supportive", "Busy", "Neutral"])
+barriers = st.sidebar.multiselect("HCP Barriers:", ["Clinical Evidence", "Cost Concerns", "Side Effects", "Time Constraints"])
+tone = st.sidebar.selectbox("Response Tone:", ["", "Short", "Long", "Formal", "Casual"])
 
-# =========================
-# Reset Filters
-# =========================
-if st.button("🔄 Reset Selection"):
-    brand = ""
-    segment = ""
-    persona = ""
-    barriers = []
-    tone = ""
+# --- User Input ---
+user_input = st.text_area("💬 Enter HCP objection, question, or discussion point:", value=st.session_state.user_input)
 
-# =========================
-# Chat Input
-# =========================
-st.markdown("### 💬 Start Discussion")
-user_input = st.text_input("Enter your question or objection:", value=st.session_state.user_input)
+# --- Generate Response ---
+if st.button("🚀 Generate Response") and client and user_input:
+    try:
+        full_prompt = (
+            f"You are a pharma sales assistant. Use the APACT framework "
+            f"(Acknowledge, Probing, Answer, Confirm, Transition). "
+            f"Brand: {brand}, Segment: {segment}, Persona: {persona}, "
+            f"Barriers: {', '.join(barriers)}, Tone: {tone}. "
+            f"HCP said: {user_input}"
+        )
 
-# =========================
-# Generate Response
-# =========================
-if st.button("Generate Response"):
-    if user_input.strip() == "":
-        st.warning("Please enter a question or objection.")
-    else:
-        full_prompt = f"""
-        You are a pharma sales assistant. Follow APACT (Acknowledge, Probing, Answer, Confirm, Transition).
-        Brand: {brand if brand else "N/A"}
-        Segment (RACE): {segment if segment else "N/A"}
-        Persona: {persona if persona else "N/A"}
-        Barriers: {", ".join(barriers) if barriers else "N/A"}
-        Tone: {tone if tone else "Default"}
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": full_prompt}],
+        )
 
-        Customer Question/Objection: {user_input}
-        """
+        reply = response.choices[0].message.content
+        st.session_state.chat_history.append(("HCP", user_input))
+        st.session_state.chat_history.append(("AI", reply))
+        st.session_state.response = reply
+        st.session_state.user_input = ""  # clear input box
 
-        try:
-            response = client.chat.completions.create(
-                messages=[{"role": "user", "content": full_prompt}],
-                model="llama3-70b-8192"
-            )
-            ai_response = response.choices[0].message.content
+    except Exception as e:
+        st.error(f"❌ Error generating response: {e}")
 
-            # Save to history
-            st.session_state.chat_history.append(("You", user_input))
-            st.session_state.chat_history.append(("AI", ai_response))
-
-            # Clear input box
-            st.session_state.user_input = ""
-
-        except Exception as e:
-            st.error(f"⚠️ Error: {e}")
-
-# =========================
-# Display Chat History
-# =========================
+# --- Show Chat History ---
 if st.session_state.chat_history:
-    st.markdown("### 📜 Discussion History")
-    for role, msg in st.session_state.chat_history:
-        if role == "You":
-            st.markdown(f"**🧑 You:** {msg}")
+    st.subheader("📝 Conversation")
+    for role, message in st.session_state.chat_history:
+        if role == "HCP":
+            st.markdown(f"**👨‍⚕️ HCP:** {message}")
         else:
-            st.markdown(f"**🤖 AI:** {msg}")
+            st.markdown(f"**🤖 Assistant:** {message}")
 
-# =========================
-# New Chat
-# =========================
-if st.button("🆕 Start New Chat"):
-    st.session_state.chat_history = []
-    st.session_state.user_input = ""
-    st.success("✅ New discussion started.")
-
-# =========================
-# Download Options
-# =========================
-if st.session_state.chat_history:
-    st.markdown("### ⬇️ Download Discussion")
-
-    if st.button("Download as Word"):
+# --- Download as Word ---
+if st.session_state.response:
+    def create_word(response_text):
         doc = Document()
-        doc.add_heading("Sales Call Assistant - Discussion", 0)
-        for role, msg in st.session_state.chat_history:
-            doc.add_paragraph(f"{role}: {msg}")
-        doc.save("discussion.docx")
-        with open("discussion.docx", "rb") as f:
-            st.download_button("📄 Download Word File", f, file_name="discussion.docx")
+        doc.add_heading("AI Sales Assistant Response", level=1)
+        doc.add_paragraph(response_text)
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return buffer
 
-    if st.button("Download as PPT"):
+    word_buffer = create_word(st.session_state.response)
+    st.download_button(
+        label="📥 Download as Word",
+        data=word_buffer,
+        file_name="Sales_Assistant_Response.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+
+    # --- Download as PPT ---
+    def create_ppt(response_text):
         prs = Presentation()
         slide_layout = prs.slide_layouts[1]
+        slide = prs.slides.add_slide(slide_layout)
+        title = slide.shapes.title
+        content = slide.placeholders[1]
+        title.text = "AI Sales Assistant Response"
+        content.text = response_text
+        buffer = BytesIO()
+        prs.save(buffer)
+        buffer.seek(0)
+        return buffer
 
-        for role, msg in st.session_state.chat_history:
-            slide = prs.slides.add_slide(slide_layout)
-            title = slide.shapes.title
-            content = slide.placeholders[1]
-            title.text = role
-            content.text = msg
+    ppt_buffer = create_ppt(st.session_state.response)
+    st.download_button(
+        label="📊 Download as PowerPoint",
+        data=ppt_buffer,
+        file_name="Sales_Assistant_Response.pptx",
+        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
 
-        prs.save("discussion.pptx")
-        with open("discussion.pptx", "rb") as f:
-            st.download_button("📊 Download PPT File", f, file_name="discussion.pptx")
+# --- Reset Filters ---
+if st.sidebar.button("🔄 Reset Filters"):
+    st.session_state.chat_history = []
+    st.session_state.user_input = ""
+    st.session_state.response = ""
+    st.experimental_rerun()
+
+# --- Start New Discussion ---
+if st.button("🆕 Start New Discussion"):
+    st.session_state.chat_history = []
+    st.session_state.user_input = ""
+    st.session_state.response = ""
+    st.experimental_rerun()
