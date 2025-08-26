@@ -1,1 +1,10 @@
-
+app.py
+assets/
+    PDFs/
+        Shingrix.pdf
+        Trelegy.pdf
+        Zejula.pdf
+    Images/
+        Shingrix_chart.png
+        Trelegy_diagram.png
+        Zejula_flow.png
