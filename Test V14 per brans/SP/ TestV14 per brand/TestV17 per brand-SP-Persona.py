@@ -5,6 +5,7 @@ import groq
 from groq import Groq
 from datetime import datetime
 import os
+import pathlib
 
 # --- Word export ---
 try:
@@ -14,8 +15,11 @@ except ImportError:
     DOCX_AVAILABLE = False
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
-# --- Initialize Groq client ---
+# --- Groq client ---
 client = Groq(api_key="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")  # Add your Groq API key here
+
+# --- Base directory for relative paths ---
+BASE_DIR = pathlib.Path(__file__).parent
 
 # --- Session state ---
 if "chat_history" not in st.session_state:
@@ -35,14 +39,14 @@ with col2:
 # --- Brand assets ---
 gsk_brands = ["Shingrix", "Trelegy", "Zejula"]
 brand_pdfs = {
-    "Shingrix": "assets/PDFs/Shingrix.pdf",
-    "Trelegy": "assets/PDFs/Trelegy.pdf",
-    "Zejula": "assets/PDFs/Zejula.pdf",
+    "Shingrix": BASE_DIR / "assets/PDFs/Shingrix.pdf",
+    "Trelegy": BASE_DIR / "assets/PDFs/Trelegy.pdf",
+    "Zejula": BASE_DIR / "assets/PDFs/Zejula.pdf",
 }
 brand_visuals = {
-    "Shingrix": "assets/Images/Shingrix_chart.png",
-    "Trelegy": "assets/Images/Trelegy_diagram.png",
-    "Zejula": "assets/Images/Zejula_flow.png",
+    "Shingrix": BASE_DIR / "assets/Images/Shingrix_chart.png",
+    "Trelegy": BASE_DIR / "assets/Images/Trelegy_diagram.png",
+    "Zejula": BASE_DIR / "assets/Images/Zejula_flow.png",
 }
 
 # --- Filters ---
@@ -133,16 +137,16 @@ Provide actionable suggestions tailored to this persona in a friendly and profes
     st.session_state.chat_history.append({"role":"ai","content":ai_output,"time":datetime.now().strftime("%H:%M")})
     display_chat()
 
-# --- PDF download & visual with absolute-path check ---
-pdf_path = os.path.join(os.getcwd(), brand_pdfs[brand])
-if os.path.exists(pdf_path):
+# --- PDF download & visual with BASE_DIR ---
+pdf_path = brand_pdfs[brand]
+if pdf_path.exists():
     with open(pdf_path,"rb") as f:
         st.download_button(f"📄 Download {brand} PDF", data=f, file_name=f"{brand}.pdf")
 else:
     st.warning(f"⚠️ PDF for {brand} not found at {pdf_path}")
 
-img_path = os.path.join(os.getcwd(), brand_visuals[brand])
-if os.path.exists(img_path):
+img_path = brand_visuals[brand]
+if img_path.exists():
     try:
         img = Image.open(img_path)
         st.image(img, width=400, caption=f"{brand} Visual Guide")
