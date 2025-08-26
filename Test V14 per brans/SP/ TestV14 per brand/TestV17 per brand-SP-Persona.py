@@ -44,7 +44,7 @@ st.title("🧠 AI Sales Call Assistant")
 
 # Brands + GitHub PDF URLs (raw)
 brand_pdfs = {
-    "Shingrix": "https://github.com/<username>/<repo-name>/raw/main/Shingrix_leaflet.pdf",
+    "Shingrix": "https://github.com/<username>/<Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf>/raw/main/Shingrix_leaflet.pdf",
     "Trelegy": "https://raw.githubusercontent.com/yourusername/repo/main/Trelegy_leaflet.pdf",
     "Zejula": "https://raw.githubusercontent.com/yourusername/repo/main/Zejula_leaflet.pdf"
 }
