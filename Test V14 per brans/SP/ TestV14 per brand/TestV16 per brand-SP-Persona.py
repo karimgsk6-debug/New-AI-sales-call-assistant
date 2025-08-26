@@ -39,8 +39,8 @@ with col2:
 
 # --- Brand & product data ---
 gsk_brands = {
-    "Shingrix": "https://example.com/shingrix-leaflet",
     "Trelegy": "https://example.com/trelegy-leaflet",
+    "Shingrix": "https://example.com/shingrix-leaflet",
     "Zejula": "https://example.com/zejula-leaflet",
 }
 gsk_brands_images = {
@@ -115,16 +115,23 @@ def display_chat():
     chat_html = ""
     for msg in st.session_state.chat_history:
         time = msg.get("time", "")
+        content = msg["content"].replace('\n', '<br>')
+
+        # Bold APACT steps
+        apact_steps = ["Acknowledge", "Probing", "Answer", "Confirm", "Transition"]
+        for step in apact_steps:
+            content = content.replace(step, f"<b>{step}</b><br>")
+
         if msg["role"] == "user":
             chat_html += f"""
             <div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>
-                {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
+                {content}<span style='font-size:10px; color:gray;'><br>{time}</span>
             </div>
             """
         else:
             chat_html += f"""
             <div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:5px; display:inline-block; max-width:80%;'>
-                {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
+                {content}<span style='font-size:10px; color:gray;'><br>{time}</span>
             </div>
             """
     chat_placeholder.markdown(chat_html, unsafe_allow_html=True)
