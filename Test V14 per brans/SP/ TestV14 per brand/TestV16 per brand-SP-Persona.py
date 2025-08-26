@@ -1,10 +1,13 @@
 import streamlit as st
 from PIL import Image
 import requests
-from io import BytesIO
+from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 import streamlit.components.v1 as components
+from docx import Document
+from pptx import Presentation
+from pptx.util import Inches, Pt
 
 # --- Initialize Groq client ---
 client = Groq(api_key="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")
@@ -16,7 +19,7 @@ if "chat_history" not in st.session_state:
 # --- Language selector ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# --- GSK logo (robust loading) ---
+# --- GSK logo ---
 logo_local_path = "images/gsk_logo.png"
 logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
 
@@ -37,14 +40,13 @@ gsk_brands = {
     "Zejula": "https://example.com/zejula-leaflet",
 }
 
-# --- Brand logos ---
 gsk_brands_images = {
     "Trelegy": "https://www.example.com/trelegy.png",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
     "Zejula": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
 }
 
-# --- RACE Segmentation ---
+# --- Filters ---
 race_segments = [
     "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
     "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine but Convinced about Shingrix data.",
@@ -52,7 +54,6 @@ race_segments = [
     "E – Engagement: Proactively prescribe to different patient profiles"
 ]
 
-# --- Doctor Barriers ---
 doctor_barriers = [
     "1 - HCP does not consider HZ as risk for the selected patient profile",
     "2 - HCP thinks there is no time to discuss preventive measures with the patients",
@@ -61,48 +62,33 @@ doctor_barriers = [
     "5 - Accessibility (POVs)"
 ]
 
-# --- Other filters ---
 objectives = ["Awareness", "Adoption", "Retention"]
 specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
-
-# --- New HCP Persona filter ---
 personas = [
     "Uncommitted Vaccinator – Not engaged, poor knowledge, least likely to prescribe vaccines (26%)",
     "Reluctant Efficiency – Do not see vaccinating 50+ as part of role, least likely to believe in impact (12%)",
     "Patient Influenced – Aware of benefits but prescribes only if patient requests (26%)",
     "Committed Vaccinator – Very positive, motivated, prioritizes vaccination & sets example (36%)"
 ]
-
-# --- Approved sales approaches ---
 gsk_approaches = [
     "Use data-driven evidence",
     "Focus on patient outcomes",
     "Leverage storytelling techniques",
 ]
-
-# --- Sales Call Flow ---
 sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
 # --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-barrier = st.sidebar.multiselect(
-    "Select Doctor Barrier / اختر حاجز الطبيب",
-    options=doctor_barriers,
-    default=[]
-)
+barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
 objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
 specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
 persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
-
-# --- AI Response Customization ---
 response_length_options = ["Short", "Medium", "Long"]
 response_tone_options = ["Formal", "Casual", "Friendly", "Persuasive"]
 response_length = st.sidebar.selectbox("Select Response Length / اختر طول الرد", response_length_options)
 response_tone = st.sidebar.selectbox("Select Response Tone / اختر نبرة الرد", response_tone_options)
-
-# --- Interface Mode ---
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
 # --- Load brand image safely ---
@@ -149,7 +135,7 @@ Approved GSK Sales Approaches:
 {approaches_str}
 Sales Call Flow Steps:
 {flow_str}
-Use ABAC (Acknowledge-Probing-Action-Commitment) technique for handling objections.
+Use APACT (Acknowledge → Probing → Answer → Confirm → Transition) technique for handling objections.
 Response Length: {response_length}
 Response Tone: {response_tone}
 Provide actionable suggestions tailored to this persona, following the selected length and tone, in a friendly and professional manner.
@@ -168,7 +154,32 @@ Provide actionable suggestions tailored to this persona, following the selected 
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-# --- Display chat history / interface ---
+        # --- Download options ---
+        if ai_output:
+            st.markdown("### 📥 Download AI Response")
+            
+            # Word
+            doc = Document()
+            doc.add_heading("AI Sales Call Response", 0)
+            doc.add_paragraph(ai_output)
+            word_buffer = io_bytes()
+            doc.save(word_buffer)
+            st.download_button("Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
+
+            # PowerPoint
+            prs = Presentation()
+            slide = prs.slides.add_slide(prs.slide_layouts[5])
+            title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(1))
+            title_frame = title_box.text_frame
+            title_frame.text = "AI Sales Call Response"
+            content_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.5), Inches(9), Inches(4))
+            content_frame = content_box.text_frame
+            content_frame.text = ai_output
+            ppt_buffer = io_bytes()
+            prs.save(ppt_buffer)
+            st.download_button("Download as PowerPoint (.pptx)", ppt_buffer.getvalue(), file_name="AI_Response.pptx")
+
+# --- Display chat history ---
 with chat_container:
     if interface_mode == "Chatbot":
         st.subheader("💬 Chatbot Interface")
@@ -196,7 +207,7 @@ with chat_container:
             <p><b>Brand:</b> {brand}</p>
             <p><b>Sales Flow:</b> {flow_str}</p>
             <p><b>Tone:</b> {response_tone}</p>
-            <p><b>AI Suggestion:</b> Example probing question or ABAC objection handling approach here...</p>
+            <p><b>AI Suggestion:</b> Example probing question or APACT objection handling approach here...</p>
         </div>
         """
         components.html(html_content, height=300)
