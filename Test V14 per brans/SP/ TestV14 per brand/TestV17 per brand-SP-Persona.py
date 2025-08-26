@@ -72,7 +72,7 @@ response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Casual", "Frie
 # --- Fetch PDF content automatically ---
 if PDF_AVAILABLE:
     try:
-        pdf_url = brand_pdfs[brand]
+        pdf_url = "Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf" brand_pdfs[brand]
         r = requests.get(pdf_url)
         r.raise_for_status()
         pdf_file = BytesIO(r.content)
