@@ -39,8 +39,8 @@ with col2:
 
 # --- Brand & product data ---
 gsk_brands = {
-    "Trelegy": "https://example.com/trelegy-leaflet",
     "Shingrix": "https://example.com/shingrix-leaflet",
+    "Trelegy": "https://example.com/trelegy-leaflet",
     "Zejula": "https://example.com/zejula-leaflet",
 }
 gsk_brands_images = {
