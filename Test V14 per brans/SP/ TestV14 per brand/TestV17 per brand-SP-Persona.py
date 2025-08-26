@@ -69,42 +69,53 @@ persona = st.sidebar.selectbox("Select HCP Persona", personas)
 response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
 response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Casual", "Friendly", "Persuasive"])
 
-# Fetch PDF content automatically
+# --- Robust PDF fetching ---
+pdf_text = "No leaflet content available."
+pdf_images = []
+
 if PDF_AVAILABLE:
     try:
-        pdf_url = brand_pdfs[brand]
-        r = requests.get(pdf_url)
-        r.raise_for_status()
-        pdf_file = BytesIO(r.content)
+        pdf_url = brand_pdfs.get(brand)
+        if not pdf_url:
+            st.warning(f"⚠️ No PDF URL defined for {brand}.")
+        else:
+            r = requests.get(pdf_url)
+            if r.status_code == 200:
+                pdf_file = BytesIO(r.content)
+                
+                # Extract text
+                try:
+                    reader = PyPDF2.PdfReader(pdf_file)
+                    pdf_text = ""
+                    for page in reader.pages:
+                        pdf_text += page.extract_text() + "\n"
+                    pdf_text = pdf_text[:6000]
+                except:
+                    st.warning(f"⚠️ Could not extract text from {brand} PDF.")
+                    pdf_text = "No leaflet text available."
 
-        # Extract text
-        reader = PyPDF2.PdfReader(pdf_file)
-        pdf_text = ""
-        for page in reader.pages:
-            pdf_text += page.extract_text() + "\n"
-        st.session_state.pdf_text = pdf_text[:6000]
-
-        # Extract visuals
-        pdf_file.seek(0)
-        doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-        images = []
-        for page_num in range(len(doc)):
-            for img_index, img in enumerate(doc[page_num].get_images(full=True)):
-                xref = img[0]
-                base_image = doc.extract_image(xref)
-                image_data = base_image["image"]
-                images.append(Image.open(BytesIO(image_data)))
-            if len(images) >= 3:  # first 3 visuals only
-                break
-        st.session_state.pdf_images = images
-
+                # Extract visuals
+                try:
+                    pdf_file.seek(0)
+                    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+                    for page_num in range(len(doc)):
+                        for img_index, img in enumerate(doc[page_num].get_images(full=True)):
+                            xref = img[0]
+                            base_image = doc.extract_image(xref)
+                            image_data = base_image["image"]
+                            pdf_images.append(Image.open(BytesIO(image_data)))
+                        if len(pdf_images) >= 3:
+                            break
+                except:
+                    st.warning(f"⚠️ Could not extract images from {brand} PDF.")
+                    pdf_images = []
+            else:
+                st.warning(f"⚠️ PDF not found (status code {r.status_code}).")
     except Exception as e:
-        st.warning(f"⚠️ Could not fetch or parse PDF: {e}")
-        st.session_state.pdf_text = ""
-        st.session_state.pdf_images = []
-else:
-    st.session_state.pdf_text = ""
-    st.session_state.pdf_images = []
+        st.warning(f"⚠️ Error fetching PDF: {e}")
+
+st.session_state.pdf_text = pdf_text
+st.session_state.pdf_images = pdf_images
 
 # Chat input
 st.subheader("💬 Chatbot Interface")
@@ -115,7 +126,7 @@ with st.form("chat_form", clear_on_submit=True):
 if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
 
-    pdf_context = st.session_state.pdf_text if st.session_state.pdf_text else "No leaflet content available."
+    pdf_context = st.session_state.pdf_text
 
     prompt = f"""
 Language: {language}
