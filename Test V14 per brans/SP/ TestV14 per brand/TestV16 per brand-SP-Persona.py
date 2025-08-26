@@ -1,4 +1,3 @@
-
 import streamlit as st
 from PIL import Image
 import requests
@@ -7,7 +6,7 @@ import groq
 from groq import Groq
 from datetime import datetime
 
-# --- Optional dependency ---
+# --- Optional dependency for Word download ---
 try:
     from docx import Document
     DOCX_AVAILABLE = True
