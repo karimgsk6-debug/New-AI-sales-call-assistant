@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()  # Optional, only needed if using a .env file
 
 # --- Initialize Groq client safely ---
-GROQ_API_KEY = os.getenv("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")  # Make sure this environment variable is set
+GROQ_API_KEY = os.getenv("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")  # Make sure this environment variable is set
 if not GROQ_API_KEY:
     st.error("❌ Groq API key not found. Please set the environment variable 'GROQ_API_KEY'.")
     st.stop()
