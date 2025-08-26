@@ -1,10 +1,21 @@
-app.py
 assets/
-    PDFs/
-        Shingrix.pdf
-        Trelegy.pdf
-        Zejula.pdf
-    Images/
-        Shingrix_chart.png
-        Trelegy_diagram.png
-        Zejula_flow.png
+  PDFs/
+    Shingrix.pdf
+    Trelegy.pdf
+    Zejula.pdf
+  Visuals/
+    Shingrix/
+      cost_benefit.png
+      efficacy_chart.png
+      safety_profile.png
+      adherence_curve.png
+    Trelegy/
+      cost_benefit.png
+      efficacy_chart.png
+      safety_profile.png
+      adherence_curve.png
+    Zejula/
+      cost_benefit.png
+      efficacy_chart.png
+      safety_profile.png
+      adherence_curve.png
