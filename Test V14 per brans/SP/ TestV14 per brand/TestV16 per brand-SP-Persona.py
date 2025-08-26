@@ -7,9 +7,18 @@ import streamlit.components.v1 as components
 import re
 from docx import Document
 from io import BytesIO
+import os
+from dotenv import load_dotenv
 
-# --- Hardcoded Groq API key (replace with your actual key) ---
-GROQ_API_KEY = "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"  # <-- Replace this with your Groq API key
+# --- Load environment variables from .env if present ---
+load_dotenv()  # Optional, only needed if using a .env file
+
+# --- Initialize Groq client safely ---
+GROQ_API_KEY = os.getenv("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")  # Make sure this environment variable is set
+if not GROQ_API_KEY:
+    st.error("❌ Groq API key not found. Please set the environment variable 'GROQ_API_KEY'.")
+    st.stop()
+
 client = Groq(api_key=GROQ_API_KEY)
 
 # --- Initialize session state ---
@@ -178,7 +187,7 @@ Sales Call Flow Steps:
 Instructions for AI:
 - Handle all objections using ABAC (Acknowledge → Probing → Action → Commitment).
 - Clearly label each step.
-- Tailor responses to persona, tone ({response_tone}), and length ({response_length}).
+- Tailor responses to persona, tone ({response_tone}), and length ({response_length}). 
 """
 
         response = client.chat.completions.create(
