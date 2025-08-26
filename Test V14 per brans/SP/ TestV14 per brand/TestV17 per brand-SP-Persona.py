@@ -5,9 +5,8 @@ from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 from datetime import datetime
-import fitz  # PyMuPDF for robust PDF text + images
 
-# Optional Word download
+# Optional: Word download
 try:
     from docx import Document
     DOCX_AVAILABLE = True
@@ -15,10 +14,19 @@ except ImportError:
     DOCX_AVAILABLE = False
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
-# Groq client
-client = Groq(api_key="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")  # replace with your Groq API key
+# PDF dependencies
+try:
+    import PyPDF2
+    import fitz  # PyMuPDF
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+    st.warning("⚠️ PyPDF2 or PyMuPDF not installed. PDF features disabled.")
 
-# Session state
+# --- Groq client ---
+client = Groq(api_key="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")  # replace with your key
+
+# --- Session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "pdf_text" not in st.session_state:
@@ -26,22 +34,22 @@ if "pdf_text" not in st.session_state:
 if "pdf_images" not in st.session_state:
     st.session_state.pdf_images = []
 
-# Language
+# --- Language ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# Logo
+# --- GSK Logo ---
 logo_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
 st.image(logo_url, width=150)
 st.title("🧠 AI Sales Call Assistant")
 
-# Public test PDF URLs
+# --- Brands + GitHub PDF URLs (raw links) ---
 brand_pdfs = {
     "Shingrix": "https://github.com/karimgsk6-debug/New-AI-sales-call-assistant/blob/main/Test%20V14%20per%20brans/SP/%20TestV14%20per%20brand/Shingrix.pdf",
-    "Trelegy": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf",
-    "Zejula": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf"
+    "Trelegy": "https://raw.githubusercontent.com/yourusername/repo/main/Trelegy_leaflet.pdf",
+    "Zejula": "https://raw.githubusercontent.com/yourusername/repo/main/Zejula_leaflet.pdf"
 }
 
-# Filters
+# --- Filters ---
 race_segments = ["R – Reach", "A – Acquisition", "C – Conversion", "E – Engagement"]
 doctor_barriers = ["HCP does not consider HZ as risk", "No time", "Cost", "Not convinced effective", "Accessibility issues"]
 objectives = ["Awareness", "Adoption", "Retention"]
@@ -50,7 +58,7 @@ personas = ["Uncommitted Vaccinator", "Reluctant Efficiency", "Patient Influence
 gsk_approaches = ["Use data-driven evidence", "Focus on patient outcomes", "Leverage storytelling techniques"]
 sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
-# Sidebar filters
+# --- Sidebar filters ---
 st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand", options=list(brand_pdfs.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment", race_segments)
@@ -61,41 +69,44 @@ persona = st.sidebar.selectbox("Select HCP Persona", personas)
 response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
 response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Casual", "Friendly", "Persuasive"])
 
-# --- Fetch PDF content using PyMuPDF ---
-pdf_text = "No leaflet content available."
-pdf_images = []
-
-try:
-    pdf_url = brand_pdfs[brand]
-    r = requests.get(pdf_url)
-    if r.status_code == 200:
+# --- Fetch PDF content automatically ---
+if PDF_AVAILABLE:
+    try:
+        pdf_url = brand_pdfs[brand]
+        r = requests.get(pdf_url)
+        r.raise_for_status()
         pdf_file = BytesIO(r.content)
-        doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
 
         # Extract text
+        reader = PyPDF2.PdfReader(pdf_file)
         pdf_text = ""
-        for page in doc:
-            pdf_text += page.get_text() + "\n"
-        pdf_text = pdf_text[:6000]  # Limit to 6000 characters
+        for page in reader.pages:
+            pdf_text += page.extract_text() + "\n"
+        st.session_state.pdf_text = pdf_text[:6000]
 
-        # Extract images (first 3)
-        for page in doc:
-            for img_index, img in enumerate(page.get_images(full=True)):
+        # Extract visuals
+        pdf_file.seek(0)
+        doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+        images = []
+        for page_num in range(len(doc)):
+            for img_index, img in enumerate(doc[page_num].get_images(full=True)):
                 xref = img[0]
                 base_image = doc.extract_image(xref)
                 image_data = base_image["image"]
-                pdf_images.append(Image.open(BytesIO(image_data)))
-            if len(pdf_images) >= 3:
+                images.append(Image.open(BytesIO(image_data)))
+            if len(images) >= 3:  # show first 3
                 break
-    else:
-        st.warning(f"⚠️ PDF not found (status code {r.status_code}).")
-except Exception as e:
-    st.warning(f"⚠️ Error fetching PDF: {e}")
+        st.session_state.pdf_images = images
 
-st.session_state.pdf_text = pdf_text
-st.session_state.pdf_images = pdf_images
+    except Exception as e:
+        st.warning(f"⚠️ Could not fetch or parse PDF: {e}")
+        st.session_state.pdf_text = ""
+        st.session_state.pdf_images = []
+else:
+    st.session_state.pdf_text = ""
+    st.session_state.pdf_images = []
 
-# Chat input
+# --- Chat input ---
 st.subheader("💬 Chatbot Interface")
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Type your message...")
@@ -104,7 +115,7 @@ with st.form("chat_form", clear_on_submit=True):
 if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
 
-    pdf_context = st.session_state.pdf_text
+    pdf_context = st.session_state.pdf_text if st.session_state.pdf_text else "No leaflet content available."
 
     prompt = f"""
 Language: {language}
@@ -136,20 +147,20 @@ Provide actionable sales suggestions aligned with the leaflet content.
     ai_output = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
 
-# Display chat
+# --- Display chat ---
 for msg in st.session_state.chat_history:
     if msg["role"] == "user":
         st.markdown(f"🧑‍💼 **You:** {msg['content']}")
     else:
         st.markdown(f"🤖 **AI:** {msg['content']}")
 
-# Display visuals
+# --- Display visuals ---
 if st.session_state.pdf_images:
     st.subheader("📊 Extracted Visuals from Leaflet")
     for img in st.session_state.pdf_images:
         st.image(img, use_container_width=True)
 
-# Word download
+# --- Word download ---
 if DOCX_AVAILABLE and st.session_state.chat_history:
     latest_ai = [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "ai"]
     if latest_ai:
