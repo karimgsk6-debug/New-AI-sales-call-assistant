@@ -2,12 +2,28 @@ import streamlit as st
 from PIL import Image
 import requests
 from io import BytesIO
-import groq
 from groq import Groq
 import streamlit.components.v1 as components
+import re
+from docx import Document
+import os
+from dotenv import load_dotenv
+
+# --- Load .env file for local Windows development ---
+load_dotenv()  # looks for .env in project root
+
+# --- Get Groq API key ---
+GROQ_API_KEY = st.secrets.get("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") or os.getenv("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")
+
+# --- Debug line: check if the key is detected ---
+if GROQ_API_KEY:
+    st.write("✅ Groq API key detected: ", GROQ_API_KEY[:5] + "...")  # show first 5 chars only
+else:
+    st.error("❌ Groq API key not found. Please set it in Streamlit secrets or as environment variable 'GROQ_API_KEY'.")
+    st.stop()
 
 # --- Initialize Groq client ---
-client = Groq(api_key="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")
+client = Groq(api_key=GROQ_API_KEY)
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
@@ -16,7 +32,7 @@ if "chat_history" not in st.session_state:
 # --- Language selector ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# --- GSK logo (robust loading) ---
+# --- GSK logo ---
 logo_local_path = "images/gsk_logo.png"
 logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
 
@@ -30,23 +46,21 @@ with col1:
 with col2:
     st.title("🧠 AI Sales Call Assistant")
 
-# --- GSK brand mappings ---
+# --- Brands ---
 gsk_brands = {
-    "Augmentin": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/PDFs/pi.pdf",
-    "Shingrix": "https://assets.gskinternet.com/pharma/GSKpro/Saudi/shingrix/shingrix-pi.pdf",
-    "Seretide": "https://assets.gskinternet.com/pharma/GSKpro/Egypt/Seretide/seretide_pi_205223.pdf",
+    "Trelegy": "https://example.com/trelegy-leaflet",
+    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Zejula": "https://example.com/zejula-leaflet",
 }
-
-# --- Brand logos ---
 gsk_brands_images = {
-    "Augmentin": "https://www.bloompharmacy.com/cdn/shop/products/augmentin-1-gm-14-tablets-145727_600x600_crop_center.jpg?v=1687635056",
+    "Trelegy": "https://www.example.com/trelegy.png",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
-    "Seretide": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
+    "Zejula": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
 }
 
 # --- RACE Segmentation ---
 race_segments = [
-    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
+    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
     "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine but Convinced about Shingrix data.",
     "C – Conversion: Proactively initiate discussion with specific patient profile but For other patient profiles he is not prescribing yet.",
     "E – Engagement: Proactively prescribe to different patient profiles"
@@ -65,7 +79,7 @@ doctor_barriers = [
 objectives = ["Awareness", "Adoption", "Retention"]
 specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
 
-# --- New HCP Persona filter ---
+# --- HCP Personas ---
 personas = [
     "Uncommitted Vaccinator – Not engaged, poor knowledge, least likely to prescribe vaccines (26%)",
     "Reluctant Efficiency – Do not see vaccinating 50+ as part of role, least likely to believe in impact (12%)",
@@ -80,16 +94,14 @@ gsk_approaches = [
     "Leverage storytelling techniques",
 ]
 
+# --- Sales Call Flow ---
+sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
+
 # --- Sidebar Filters ---
 st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
-# --- MULTISELECT for Doctor Barriers ---
-barrier = st.sidebar.multiselect(
-    "Select Doctor Barrier / اختر حاجز الطبيب",
-    options=doctor_barriers,
-    default=[]
-)
+barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
 objective = st.sidebar.selectbox("Select Objective / اختر الهدف", objectives)
 specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", specialties)
 persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", personas)
@@ -125,12 +137,41 @@ chat_container = st.container()
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
 user_input = st.text_area(placeholder_text, key="user_input", height=80)
 
-# --- Send button ---
+# --- Function to highlight ABAC ---
+def highlight_abac(text):
+    colors = {
+        "Acknowledge": "#FFDDC1",
+        "Probing": "#FFFACD",
+        "Action": "#C1FFD7",
+        "Commitment": "#D1D1FF"
+    }
+    for step, color in colors.items():
+        text = re.sub(
+            fr"({step}:.*?)(?=(Acknowledge|Probing|Action|Commitment|$))",
+            lambda m: f"<div style='background:{color}; padding:8px; border-radius:6px; margin:5px 0;'>{m.group(1)}</div>",
+            text,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+    return text
+
+# --- Function to create Word file ---
+def create_word_file(text, filename="AI_Response.docx"):
+    doc = Document()
+    doc.add_heading("AI Sales Call Assistant Response", level=1)
+    for line in text.split("\n"):
+        doc.add_paragraph(line)
+    file_stream = BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    return file_stream
+
+# --- Send button with ABAC integration ---
 if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
         st.session_state.chat_history.append({"role": "user", "content": user_input})
 
         approaches_str = "\n".join(gsk_approaches)
+        flow_str = " → ".join(sales_call_flow)
 
         prompt = f"""
 Language: {language}
@@ -144,12 +185,15 @@ Doctor Specialty: {specialty}
 HCP Persona: {persona}
 Approved GSK Sales Approaches:
 {approaches_str}
-Response Length: {response_length}
-Response Tone: {response_tone}
-Provide actionable suggestions tailored to this persona, following the selected length and tone, in a friendly and professional manner.
+Sales Call Flow Steps:
+{flow_str}
+
+Instructions for AI:
+- Handle all objections using ABAC (Acknowledge → Probing → Action → Commitment).
+- Clearly label each step.
+- Tailor responses to persona, tone ({response_tone}), and length ({response_length}). 
 """
 
-        # Call Groq API
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
@@ -162,7 +206,7 @@ Provide actionable suggestions tailored to this persona, following the selected 
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-# --- Display chat history / interface ---
+# --- Display chat history with ABAC highlighting and Word download ---
 with chat_container:
     if interface_mode == "Chatbot":
         st.subheader("💬 Chatbot Interface")
@@ -170,7 +214,17 @@ with chat_container:
             if msg["role"] == "user":
                 st.markdown(f"<div style='text-align:right; background:#d1e7dd; padding:10px; border-radius:12px; margin:10px 0;'>{msg['content']}</div>", unsafe_allow_html=True)
             else:
-                st.markdown(f"<div style='text-align:left; background:#f0f2f6; padding:15px; border-radius:12px; margin:10px 0; box-shadow:2px 2px 5px rgba(0,0,0,0.1);'>{msg['content']}</div>", unsafe_allow_html=True)
+                highlighted = highlight_abac(msg["content"])
+                st.markdown(highlighted, unsafe_allow_html=True)
+
+                # --- Download Button ---
+                word_file = create_word_file(msg["content"])
+                st.download_button(
+                    label="📄 Download Response as Word",
+                    data=word_file,
+                    file_name="AI_Response.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
 
     elif interface_mode == "Card Dashboard":
         st.subheader("📊 Card-Based Dashboard")
@@ -188,11 +242,12 @@ with chat_container:
             <h3>{persona} Segment</h3>
             <p><b>Behavior:</b> {', '.join(barrier) if barrier else 'None'}</p>
             <p><b>Brand:</b> {brand}</p>
+            <p><b>Sales Flow:</b> {" → ".join(sales_call_flow)}</p>
             <p><b>Tone:</b> {response_tone}</p>
-            <p><b>AI Suggestion:</b> Example probing question or approach here...</p>
+            <p><b>AI Suggestion:</b> ABAC objection handling phrasing generated by AI here...</p>
         </div>
         """
-        components.html(html_content, height=250)
+        components.html(html_content, height=300)
 
 # --- Brand leaflet ---
 st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
