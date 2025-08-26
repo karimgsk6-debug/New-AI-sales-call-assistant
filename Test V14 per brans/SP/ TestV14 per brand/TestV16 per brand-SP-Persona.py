@@ -111,7 +111,7 @@ if st.button("🗑️ Clear Chat / مسح المحادثة"):
 # --- Chat container ---
 st.subheader("💬 Chatbot Interface")
 
-chat_box_html = f"""
+chat_box_html = """
 <div id="chat-container" style="position: relative; height: 500px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
   <div id="chat-history"></div>
   <div style="position: sticky; bottom: 0; background: #fff; padding: 10px; display: flex;">
@@ -131,11 +131,8 @@ sendBtn.onclick = () => {
         chatHistory.innerHTML += `<div style='text-align:right; background:#dcf8c6; padding:5px; margin:5px; border-radius:8px;'>${message}</div>`;
         inputBox.value = "";
         chatHistory.scrollTop = chatHistory.scrollHeight;
-        // Trigger Streamlit event
-        const inputEvent = new Event('input', {bubbles:true});
-        inputBox.dispatchEvent(inputEvent);
     }
-}
+};
 
 inputBox.addEventListener("keydown", function(e){
     if(e.key === "Enter"){
@@ -148,7 +145,7 @@ inputBox.addEventListener("keydown", function(e){
 
 components.html(chat_box_html, height=550)
 
-# --- Trigger AI response ---
+# --- Temporary input to trigger Streamlit event ---
 user_input = st.text_input("Temporary input for Streamlit event trigger", key="user_input_trigger")
 if user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
