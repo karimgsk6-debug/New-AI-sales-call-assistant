@@ -1,4 +1,7 @@
 streamlit
-groq
 Pillow
+PyPDF2
+PyMuPDF
+groq
 python-docx
+requests
