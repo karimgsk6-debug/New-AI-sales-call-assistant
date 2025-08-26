@@ -5,6 +5,7 @@ from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 from datetime import datetime
+import streamlit.components.v1 as components
 
 # --- Optional dependency for Word download ---
 try:
@@ -108,25 +109,47 @@ if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 
 # --- Chat container ---
-chat_container = st.container()
-user_input = st.text_input("Type your message...", key="user_input", max_chars=500)
+st.subheader("💬 Chatbot Interface")
 
-# --- Send icon + Enter key ---
-send_js = """
+chat_box_html = f"""
+<div id="chat-container" style="position: relative; height: 500px; overflow-y: auto; border: 1px solid #ccc; padding: 10px;">
+  <div id="chat-history"></div>
+  <div style="position: sticky; bottom: 0; background: #fff; padding: 10px; display: flex;">
+    <input id="user-input" type="text" style="flex:1; padding:10px; border-radius:5px; border:1px solid #ccc;" placeholder="Type your message..."/>
+    <button id="send-btn" style="margin-left:5px; border:none; background:#007bff; color:#fff; padding:10px 15px; border-radius:50%;">➤</button>
+  </div>
+</div>
+
 <script>
-const inputBox = window.parent.document.querySelector('input[k="user_input"]');
-const sendBtn = document.createElement('button');
-sendBtn.innerHTML = '➤';
-sendBtn.style = 'background:#007bff; border:none; color:white; border-radius:50%; width:40px; height:40px; font-size:20px; margin-left:5px;';
-inputBox.parentNode.appendChild(sendBtn);
-sendBtn.onclick = () => {inputBox.dispatchEvent(new Event('change', {bubbles:true}))};
-inputBox.addEventListener('keydown', function(e){if(e.key==='Enter'){e.preventDefault(); inputBox.dispatchEvent(new Event('change', {bubbles:true}))}});
+const sendBtn = document.getElementById("send-btn");
+const inputBox = document.getElementById("user-input");
+const chatHistory = document.getElementById("chat-history");
+
+sendBtn.onclick = () => {
+    const message = inputBox.value;
+    if(message.trim() !== "") {
+        chatHistory.innerHTML += `<div style='text-align:right; background:#dcf8c6; padding:5px; margin:5px; border-radius:8px;'>${message}</div>`;
+        inputBox.value = "";
+        chatHistory.scrollTop = chatHistory.scrollHeight;
+        // Trigger Streamlit event
+        const inputEvent = new Event('input', {bubbles:true});
+        inputBox.dispatchEvent(inputEvent);
+    }
+}
+
+inputBox.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+        sendBtn.click();
+        e.preventDefault();
+    }
+});
 </script>
 """
-import streamlit.components.v1 as components
-components.html(send_js, height=50)
+
+components.html(chat_box_html, height=550)
 
 # --- Trigger AI response ---
+user_input = st.text_input("Temporary input for Streamlit event trigger", key="user_input_trigger")
 if user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
 
@@ -152,7 +175,6 @@ Response Tone: {response_tone}
 Provide actionable suggestions tailored to this persona in a friendly and professional manner.
 """
 
-    # --- Call Groq API ---
     response = client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
         messages=[
@@ -165,7 +187,7 @@ Provide actionable suggestions tailored to this persona in a friendly and profes
     ai_output = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
 
-    # --- Word download only ---
+    # --- Word download ---
     if DOCX_AVAILABLE:
         doc = Document()
         doc.add_heading("AI Sales Call Response", 0)
@@ -175,22 +197,20 @@ Provide actionable suggestions tailored to this persona in a friendly and profes
         st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
 
 # --- Display chat history in WhatsApp style ---
-with chat_container:
-    st.subheader("💬 Chatbot Interface")
-    for msg in st.session_state.chat_history:
-        time = msg["time"]
-        if msg["role"] == "user":
-            st.markdown(f"""
-            <div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:10px 0; display:inline-block; max-width:80%;'>
-                {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:10px 0; display:inline-block; max-width:80%;'>
-                {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
-            </div>
-            """, unsafe_allow_html=True)
+for msg in st.session_state.chat_history:
+    time = msg["time"]
+    if msg["role"] == "user":
+        st.markdown(f"""
+        <div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>
+            {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:5px; display:inline-block; max-width:80%;'>
+            {msg['content']}<br><span style='font-size:10px; color:gray;'>{time}</span>
+        </div>
+        """, unsafe_allow_html=True)
 
 # --- Brand leaflet ---
 st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
