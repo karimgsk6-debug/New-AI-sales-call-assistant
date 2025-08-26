@@ -36,7 +36,7 @@ st.title("🧠 AI Sales Call Assistant")
 
 # Public test PDF URLs
 brand_pdfs = {
-    "Shingrix": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf",
+    "Shingrix": "https://github.com/karimgsk6-debug/New-AI-sales-call-assistant/blob/main/Test%20V14%20per%20brans/SP/%20TestV14%20per%20brand/Shingrix.pdf",
     "Trelegy": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf",
     "Zejula": "https://raw.githubusercontent.com/karimsalah-public/test-pdfs/main/example_leaflet.pdf"
 }
