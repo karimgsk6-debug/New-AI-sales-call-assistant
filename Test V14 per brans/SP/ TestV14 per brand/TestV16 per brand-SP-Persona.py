@@ -19,7 +19,7 @@ if not GROQ_API_KEY:
     st.error("❌ Groq API key not found. Please set the environment variable 'GROQ_API_KEY'.")
     st.stop()
 
-client = Groq(api_key=GROQ_API_KEY)
+client = Groq(api_key="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")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
