@@ -2,18 +2,15 @@ import streamlit as st
 from PIL import Image
 import requests
 from io import BytesIO
-import os
 from groq import Groq
 import streamlit.components.v1 as components
+import re
+from docx import Document
+from io import BytesIO
 
-# --- Load API key from environment variable ---
-api_key = os.getenv("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")
-if not api_key:
-    st.error("❌ Groq API key not found. Please set the environment variable 'GROQ_API_KEY'.")
-    st.stop()
-
-# --- Initialize Groq client ---
-client = Groq(api_key=api_key)
+# --- Hardcoded Groq API key (replace with your actual key) ---
+GROQ_API_KEY = "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"  # <-- Replace this with your Groq API key
+client = Groq(api_key=GROQ_API_KEY)
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
@@ -127,7 +124,35 @@ chat_container = st.container()
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
 user_input = st.text_area(placeholder_text, key="user_input", height=80)
 
-# --- Send button with ABAC integrated ---
+# --- Function to highlight ABAC ---
+def highlight_abac(text):
+    colors = {
+        "Acknowledge": "#FFDDC1",
+        "Probing": "#FFFACD",
+        "Action": "#C1FFD7",
+        "Commitment": "#D1D1FF"
+    }
+    for step, color in colors.items():
+        text = re.sub(
+            fr"({step}:.*?)(?=(Acknowledge|Probing|Action|Commitment|$))",
+            lambda m: f"<div style='background:{color}; padding:8px; border-radius:6px; margin:5px 0;'>{m.group(1)}</div>",
+            text,
+            flags=re.DOTALL | re.IGNORECASE
+        )
+    return text
+
+# --- Function to create Word file ---
+def create_word_file(text, filename="AI_Response.docx"):
+    doc = Document()
+    doc.add_heading("AI Sales Call Assistant Response", level=1)
+    for line in text.split("\n"):
+        doc.add_paragraph(line)
+    file_stream = BytesIO()
+    doc.save(file_stream)
+    file_stream.seek(0)
+    return file_stream
+
+# --- Send button with ABAC integration ---
 if st.button("🚀 Send / أرسل") and user_input.strip():
     with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
         st.session_state.chat_history.append({"role": "user", "content": user_input})
@@ -152,11 +177,10 @@ Sales Call Flow Steps:
 
 Instructions for AI:
 - Handle all objections using ABAC (Acknowledge → Probing → Action → Commitment).
-- Provide ready-to-use phrasing that the sales rep can say during the call.
-- Tailor responses to persona, selected tone ({response_tone}), and length ({response_length}).
+- Clearly label each step.
+- Tailor responses to persona, tone ({response_tone}), and length ({response_length}).
 """
 
-        # Call Groq API
         response = client.chat.completions.create(
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             messages=[
@@ -169,7 +193,7 @@ Instructions for AI:
         ai_output = response.choices[0].message.content
         st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-# --- Display chat history ---
+# --- Display chat history with ABAC highlighting and Word download ---
 with chat_container:
     if interface_mode == "Chatbot":
         st.subheader("💬 Chatbot Interface")
@@ -177,8 +201,17 @@ with chat_container:
             if msg["role"] == "user":
                 st.markdown(f"<div style='text-align:right; background:#d1e7dd; padding:10px; border-radius:12px; margin:10px 0;'>{msg['content']}</div>", unsafe_allow_html=True)
             else:
-                # Highlight ABAC steps visually if possible
-                st.markdown(f"<div style='text-align:left; background:#f0f2f6; padding:15px; border-radius:12px; margin:10px 0; box-shadow:2px 2px 5px rgba(0,0,0,0.1);'>{msg['content']}</div>", unsafe_allow_html=True)
+                highlighted = highlight_abac(msg["content"])
+                st.markdown(highlighted, unsafe_allow_html=True)
+
+                # --- Download Button ---
+                word_file = create_word_file(msg["content"])
+                st.download_button(
+                    label="📄 Download Response as Word",
+                    data=word_file,
+                    file_name="AI_Response.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
 
     elif interface_mode == "Card Dashboard":
         st.subheader("📊 Card-Based Dashboard")
@@ -196,7 +229,7 @@ with chat_container:
             <h3>{persona} Segment</h3>
             <p><b>Behavior:</b> {', '.join(barrier) if barrier else 'None'}</p>
             <p><b>Brand:</b> {brand}</p>
-            <p><b>Sales Flow:</b> {flow_str}</p>
+            <p><b>Sales Flow:</b> {" → ".join(sales_call_flow)}</p>
             <p><b>Tone:</b> {response_tone}</p>
             <p><b>AI Suggestion:</b> ABAC objection handling phrasing generated by AI here...</p>
         </div>
