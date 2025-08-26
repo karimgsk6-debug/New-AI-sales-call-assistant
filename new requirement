@@ -1,7 +1,7 @@
 streamlit
 Pillow
-PyPDF2
-PyMuPDF
+requests
 groq
 python-docx
-requests
+PyPDF2
+PyMuPDF
