@@ -1,4 +1,12 @@
 streamlit
+Pillow
+requests
+groq
+python-docx
+PyPDF2
+PyMuPDF
+
+streamlit
 groq
 Pillow
 python-docx
