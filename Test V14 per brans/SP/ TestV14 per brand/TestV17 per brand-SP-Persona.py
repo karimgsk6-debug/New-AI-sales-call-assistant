@@ -6,7 +6,7 @@ import groq
 from groq import Groq
 from datetime import datetime
 
-# Optional: Word download
+# Optional Word download
 try:
     from docx import Document
     DOCX_AVAILABLE = True
@@ -14,7 +14,7 @@ except ImportError:
     DOCX_AVAILABLE = False
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
-# PDF dependencies
+# Optional PDF libraries
 try:
     import PyPDF2
     import fitz  # PyMuPDF
@@ -23,10 +23,10 @@ except ImportError:
     PDF_AVAILABLE = False
     st.warning("⚠️ PyPDF2 or PyMuPDF not installed. PDF features disabled.")
 
-# --- Groq client ---
+# Groq client
 client = Groq(api_key="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")  # replace with your key
 
-# --- Session state ---
+# Session state
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "pdf_text" not in st.session_state:
@@ -34,22 +34,22 @@ if "pdf_text" not in st.session_state:
 if "pdf_images" not in st.session_state:
     st.session_state.pdf_images = []
 
-# --- Language ---
+# Language
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
-# --- GSK Logo ---
+# Logo
 logo_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
 st.image(logo_url, width=150)
 st.title("🧠 AI Sales Call Assistant")
 
-# --- Brands + GitHub PDF URLs (raw links) ---
+# Brands + GitHub PDF URLs (raw)
 brand_pdfs = {
     "Shingrix": "https://raw.githubusercontent.com/yourusername/repo/main/Shingrix_leaflet.pdf",
     "Trelegy": "https://raw.githubusercontent.com/yourusername/repo/main/Trelegy_leaflet.pdf",
     "Zejula": "https://raw.githubusercontent.com/yourusername/repo/main/Zejula_leaflet.pdf"
 }
 
-# --- Filters ---
+# Filters
 race_segments = ["R – Reach", "A – Acquisition", "C – Conversion", "E – Engagement"]
 doctor_barriers = ["HCP does not consider HZ as risk", "No time", "Cost", "Not convinced effective", "Accessibility issues"]
 objectives = ["Awareness", "Adoption", "Retention"]
@@ -58,7 +58,7 @@ personas = ["Uncommitted Vaccinator", "Reluctant Efficiency", "Patient Influence
 gsk_approaches = ["Use data-driven evidence", "Focus on patient outcomes", "Leverage storytelling techniques"]
 sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
-# --- Sidebar filters ---
+# Sidebar filters
 st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand", options=list(brand_pdfs.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment", race_segments)
@@ -69,10 +69,10 @@ persona = st.sidebar.selectbox("Select HCP Persona", personas)
 response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
 response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Casual", "Friendly", "Persuasive"])
 
-# --- Fetch PDF content automatically ---
+# Fetch PDF content automatically
 if PDF_AVAILABLE:
     try:
-        pdf_url = "Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf" brand_pdfs[brand]
+        pdf_url = brand_pdfs[brand]
         r = requests.get(pdf_url)
         r.raise_for_status()
         pdf_file = BytesIO(r.content)
@@ -94,7 +94,7 @@ if PDF_AVAILABLE:
                 base_image = doc.extract_image(xref)
                 image_data = base_image["image"]
                 images.append(Image.open(BytesIO(image_data)))
-            if len(images) >= 3:  # show first 3
+            if len(images) >= 3:  # first 3 visuals only
                 break
         st.session_state.pdf_images = images
 
@@ -106,7 +106,7 @@ else:
     st.session_state.pdf_text = ""
     st.session_state.pdf_images = []
 
-# --- Chat input ---
+# Chat input
 st.subheader("💬 Chatbot Interface")
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Type your message...")
@@ -147,20 +147,20 @@ Provide actionable sales suggestions aligned with the leaflet content.
     ai_output = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
 
-# --- Display chat ---
+# Display chat
 for msg in st.session_state.chat_history:
     if msg["role"] == "user":
         st.markdown(f"🧑‍💼 **You:** {msg['content']}")
     else:
         st.markdown(f"🤖 **AI:** {msg['content']}")
 
-# --- Display visuals ---
+# Display visuals
 if st.session_state.pdf_images:
     st.subheader("📊 Extracted Visuals from Leaflet")
     for img in st.session_state.pdf_images:
         st.image(img, use_container_width=True)
 
-# --- Word download ---
+# Word download
 if DOCX_AVAILABLE and st.session_state.chat_history:
     latest_ai = [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "ai"]
     if latest_ai:
