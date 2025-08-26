@@ -7,8 +7,8 @@ import streamlit.components.v1 as components
 import re
 
 # --- Hardcoded Groq API key (replace with your actual key) ---
-GROQ_API_KEY = "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"  # <-- Replace this with your Groq API key
-client = Groq(api_key=GROQ_API_KEY)
+GROQ_API_KEY = "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"  # <-- Replace this with your Groq API key
+client = Groq(api_key="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")
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
