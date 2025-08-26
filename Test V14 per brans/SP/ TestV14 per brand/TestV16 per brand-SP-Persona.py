@@ -7,7 +7,7 @@ from groq import Groq
 import streamlit.components.v1 as components
 from docx import Document
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Inches
 
 # --- Initialize Groq client ---
 client = Groq(api_key="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")
@@ -33,13 +33,12 @@ with col1:
 with col2:
     st.title("🧠 AI Sales Call Assistant")
 
-# --- GSK brand mappings ---
+# --- GSK brands and images ---
 gsk_brands = {
     "Trelegy": "https://example.com/trelegy-leaflet",
     "Shingrix": "https://example.com/shingrix-leaflet",
     "Zejula": "https://example.com/zejula-leaflet",
 }
-
 gsk_brands_images = {
     "Trelegy": "https://www.example.com/trelegy.png",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
@@ -53,7 +52,6 @@ race_segments = [
     "C – Conversion: Proactively initiate discussion with specific patient profile but For other patient profiles he is not prescribing yet.",
     "E – Engagement: Proactively prescribe to different patient profiles"
 ]
-
 doctor_barriers = [
     "1 - HCP does not consider HZ as risk for the selected patient profile",
     "2 - HCP thinks there is no time to discuss preventive measures with the patients",
@@ -61,7 +59,6 @@ doctor_barriers = [
     "4 - HCP is not convinced that HZ Vx is effective in reducing the burden",
     "5 - Accessibility (POVs)"
 ]
-
 objectives = ["Awareness", "Adoption", "Retention"]
 specialties = ["General Practitioner", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
 personas = [
@@ -70,11 +67,7 @@ personas = [
     "Patient Influenced – Aware of benefits but prescribes only if patient requests (26%)",
     "Committed Vaccinator – Very positive, motivated, prioritizes vaccination & sets example (36%)"
 ]
-gsk_approaches = [
-    "Use data-driven evidence",
-    "Focus on patient outcomes",
-    "Leverage storytelling techniques",
-]
+gsk_approaches = ["Use data-driven evidence", "Focus on patient outcomes", "Leverage storytelling techniques"]
 sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
 # --- Sidebar Filters ---
@@ -111,17 +104,29 @@ if st.button("🗑️ Clear Chat / مسح المحادثة"):
 # --- Chat container ---
 chat_container = st.container()
 placeholder_text = "Type your message..." if language == "English" else "اكتب رسالتك..."
-user_input = st.text_area(placeholder_text, key="user_input", height=80)
+user_input = st.text_input(placeholder_text, key="user_input", max_chars=500)
 
-# --- Send button ---
-if st.button("🚀 Send / أرسل") and user_input.strip():
-    with st.spinner("Generating AI response... / جارٍ إنشاء الرد"):
-        st.session_state.chat_history.append({"role": "user", "content": user_input})
+# --- JavaScript for Enter key and send icon ---
+send_js = """
+<script>
+const inputBox = window.parent.document.querySelector('input[k="user_input"]');
+const sendBtn = document.createElement('button');
+sendBtn.innerHTML = '➤';
+sendBtn.style = 'background:#007bff; border:none; color:white; border-radius:50%; width:40px; height:40px; font-size:20px; margin-left:5px;';
+inputBox.parentNode.appendChild(sendBtn);
+sendBtn.onclick = () => {inputBox.dispatchEvent(new Event('change', {bubbles:true}))};
+inputBox.addEventListener('keydown', function(e){if(e.key==='Enter'){e.preventDefault(); inputBox.dispatchEvent(new Event('change', {bubbles:true}))}});
+</script>
+"""
+components.html(send_js, height=50)
 
-        approaches_str = "\n".join(gsk_approaches)
-        flow_str = " → ".join(sales_call_flow)
+# --- Trigger AI response ---
+if user_input.strip():
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
+    approaches_str = "\n".join(gsk_approaches)
+    flow_str = " → ".join(sales_call_flow)
 
-        prompt = f"""
+    prompt = f"""
 Language: {language}
 You are an expert GSK sales assistant. 
 User input: {user_input}
@@ -141,43 +146,41 @@ Response Tone: {response_tone}
 Provide actionable suggestions tailored to this persona, following the selected length and tone, in a friendly and professional manner.
 """
 
-        # Call Groq API
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
+    # Call Groq API
+    response = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[
+            {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7
+    )
 
-        ai_output = response.choices[0].message.content
-        st.session_state.chat_history.append({"role": "ai", "content": ai_output})
+    ai_output = response.choices[0].message.content
+    st.session_state.chat_history.append({"role": "ai", "content": ai_output})
 
-        # --- Download options ---
-        if ai_output:
-            st.markdown("### 📥 Download AI Response")
-            
-            # Word
-            doc = Document()
-            doc.add_heading("AI Sales Call Response", 0)
-            doc.add_paragraph(ai_output)
-            word_buffer = io_bytes()
-            doc.save(word_buffer)
-            st.download_button("Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
+    # --- Download options ---
+    if ai_output:
+        st.markdown("### 📥 Download AI Response")
+        
+        # Word
+        doc = Document()
+        doc.add_heading("AI Sales Call Response", 0)
+        doc.add_paragraph(ai_output)
+        word_buffer = io_bytes()
+        doc.save(word_buffer)
+        st.download_button("Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
 
-            # PowerPoint
-            prs = Presentation()
-            slide = prs.slides.add_slide(prs.slide_layouts[5])
-            title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(1))
-            title_frame = title_box.text_frame
-            title_frame.text = "AI Sales Call Response"
-            content_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.5), Inches(9), Inches(4))
-            content_frame = content_box.text_frame
-            content_frame.text = ai_output
-            ppt_buffer = io_bytes()
-            prs.save(ppt_buffer)
-            st.download_button("Download as PowerPoint (.pptx)", ppt_buffer.getvalue(), file_name="AI_Response.pptx")
+        # PowerPoint
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[5])
+        title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(1))
+        title_box.text_frame.text = "AI Sales Call Response"
+        content_box = slide.shapes.add_textbox(Inches(0.5), Inches(1.5), Inches(9), Inches(4))
+        content_box.text_frame.text = ai_output
+        ppt_buffer = io_bytes()
+        prs.save(ppt_buffer)
+        st.download_button("Download as PowerPoint (.pptx)", ppt_buffer.getvalue(), file_name="AI_Response.pptx")
 
 # --- Display chat history ---
 with chat_container:
