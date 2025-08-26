@@ -39,8 +39,8 @@ with col2:
 
 # --- Brand & product data ---
 gsk_brands = {
-    "Trelegy": "https://example.com/trelegy-leaflet",
     "Shingrix": "https://example.com/shingrix-leaflet",
+    "Trelegy": "https://example.com/trelegy-leaflet",
     "Zejula": "https://example.com/zejula-leaflet",
 }
 gsk_brands_images = {
@@ -135,15 +135,15 @@ display_chat()
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Type your message...", key="user_input_box")
     submitted = st.form_submit_button("➤")
-    
-    if submitted and user_input.strip():
-        st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
-        
-        # --- Prepare AI prompt ---
-        approaches_str = "\n".join(gsk_approaches)
-        flow_str = " → ".join(sales_call_flow)
 
-        prompt = f"""
+if submitted and user_input.strip():
+    st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
+    
+    # --- Prepare AI prompt ---
+    approaches_str = "\n".join(gsk_approaches)
+    flow_str = " → ".join(sales_call_flow)
+
+    prompt = f"""
 Language: {language}
 User input: {user_input}
 RACE Segment: {segment}
@@ -162,29 +162,31 @@ Response Tone: {response_tone}
 Provide actionable suggestions tailored to this persona in a friendly and professional manner.
 """
 
-        # --- Call Groq API ---
-        response = client.chat.completions.create(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            messages=[
-                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
-        )
+    # --- Call Groq API ---
+    response = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[
+            {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7
+    )
 
-        ai_output = response.choices[0].message.content
-        st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
-        
-        # --- Word download ---
-        if DOCX_AVAILABLE:
-            doc = Document()
-            doc.add_heading("AI Sales Call Response", 0)
-            doc.add_paragraph(ai_output)
-            word_buffer = io_bytes()
-            doc.save(word_buffer)
-            st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
-        
-        display_chat()
+    ai_output = response.choices[0].message.content
+    st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
+    
+    display_chat()
+
+# --- Word download outside the form ---
+if DOCX_AVAILABLE and st.session_state.chat_history:
+    latest_ai = [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "ai"]
+    if latest_ai:
+        doc = Document()
+        doc.add_heading("AI Sales Call Response", 0)
+        doc.add_paragraph(latest_ai[-1])
+        word_buffer = io_bytes()
+        doc.save(word_buffer)
+        st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
 
 # --- Brand leaflet ---
 st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
