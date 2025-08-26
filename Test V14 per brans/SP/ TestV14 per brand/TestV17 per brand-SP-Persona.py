@@ -44,7 +44,7 @@ st.title("🧠 AI Sales Call Assistant")
 
 # Brands + GitHub PDF URLs (raw)
 brand_pdfs = {
-    "Shingrix": "https://github.com/karimgsk6-debug/New-AI-sales-call-assistant/blob/b2b648da9d71fcacc3e2ddde2c0c18a7879ade42/Test%20V14%20per%20brans/SP/%20TestV14%20per%20brand/Shingrix.pdf",
+    "Shingrix": "https://github.com/karimgsk6-debug/New-AI-sales-call-assistant/blob/main/Test%20V14%20per%20brans/SP/%20TestV14%20per%20brand/Shingrix.pdf",
     "Trelegy": "https://raw.githubusercontent.com/yourusername/repo/main/Trelegy_leaflet.pdf",
     "Zejula": "https://raw.githubusercontent.com/yourusername/repo/main/Zejula_leaflet.pdf"
 }
