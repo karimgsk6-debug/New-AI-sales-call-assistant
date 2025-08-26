@@ -133,21 +133,23 @@ Provide actionable suggestions tailored to this persona in a friendly and profes
     st.session_state.chat_history.append({"role":"ai","content":ai_output,"time":datetime.now().strftime("%H:%M")})
     display_chat()
 
-# --- PDF download & visual with existence check ---
-if os.path.exists(brand_pdfs[brand]):
-    with open(brand_pdfs[brand],"rb") as f:
+# --- PDF download & visual with absolute-path check ---
+pdf_path = os.path.join(os.getcwd(), brand_pdfs[brand])
+if os.path.exists(pdf_path):
+    with open(pdf_path,"rb") as f:
         st.download_button(f"📄 Download {brand} PDF", data=f, file_name=f"{brand}.pdf")
 else:
-    st.warning(f"⚠️ PDF for {brand} not found.")
+    st.warning(f"⚠️ PDF for {brand} not found at {pdf_path}")
 
-if os.path.exists(brand_visuals[brand]):
+img_path = os.path.join(os.getcwd(), brand_visuals[brand])
+if os.path.exists(img_path):
     try:
-        img = Image.open(brand_visuals[brand])
+        img = Image.open(img_path)
         st.image(img, width=400, caption=f"{brand} Visual Guide")
     except:
-        st.warning(f"⚠️ Could not load visual for {brand}.")
+        st.warning(f"⚠️ Could not load visual for {brand}")
 else:
-    st.warning(f"⚠️ Visual for {brand} not found.")
+    st.warning(f"⚠️ Visual for {brand} not found at {img_path}")
 
 # --- Word download ---
 if DOCX_AVAILABLE and st.session_state.chat_history:
