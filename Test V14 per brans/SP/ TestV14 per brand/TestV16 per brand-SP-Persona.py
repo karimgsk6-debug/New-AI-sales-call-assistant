@@ -7,19 +7,14 @@ import streamlit.components.v1 as components
 import re
 from docx import Document
 from io import BytesIO
-import os
-from dotenv import load_dotenv
 
-# --- Load environment variables from .env if present ---
-load_dotenv()  # Optional, only needed if using a .env file
-
-# --- Initialize Groq client safely ---
-GROQ_API_KEY = os.getenv("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")  # Make sure this environment variable is set
-if not GROQ_API_KEY:
-    st.error("❌ Groq API key not found. Please set the environment variable 'GROQ_API_KEY'.")
+# --- Initialize Groq client safely using Streamlit secrets ---
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("❌ Groq API key not found in Streamlit secrets. Please add it under Settings → Secrets.")
     st.stop()
 
-client = Groq(api_key="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")
+GROQ_API_KEY = st.secrets["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"]
+client = Groq(api_key=GROQ_API_KEY)
 
 # --- Initialize session state ---
 if "chat_history" not in st.session_state:
