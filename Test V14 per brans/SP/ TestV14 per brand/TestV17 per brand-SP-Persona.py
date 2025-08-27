@@ -7,8 +7,8 @@ import streamlit.components.v1 as components
 import os
 from PyPDF2 import PdfReader
 
-# --- Initialize Groq client (API key from environment variable) ---
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# --- Initialize Groq client (API key directly in code) ---
+client = Groq(api_key="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")
 
 # --- Brand PDFs dictionary ---
 brand_pdfs = {
