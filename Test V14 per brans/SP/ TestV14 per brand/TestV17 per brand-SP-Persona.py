@@ -8,7 +8,7 @@ import os
 from PyPDF2 import PdfReader
 
 # --- Initialize Groq client (API key from environment variable) ---
-client = Groq(api_key=os.getenv("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"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # --- Brand PDFs dictionary ---
 brand_pdfs = {
