@@ -1,0 +1,115 @@
+import streamlit as st
+from PIL import Image
+import requests
+from io import BytesIO, BytesIO as io_bytes
+import groq
+from groq import Groq
+from datetime import datetime
+import matplotlib.pyplot as plt
+import pandas as pd
+import altair as alt
+
+# --- Optional Word download ---
+try:
+    from docx import Document
+    DOCX_AVAILABLE = True
+except ImportError:
+    DOCX_AVAILABLE = False
+    st.warning("⚠️ python-docx not installed. Word download unavailable.")
+
+# --- Groq client ---
+client = Groq(api_key="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")
+
+# --- Session state ---
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# --- Language ---
+language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
+
+# --- GSK Logo ---
+logo_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
+st.image(logo_url, width=150)
+st.title("🧠 AI Sales Call Assistant")
+
+# --- Sidebar Filters ---
+brand = st.sidebar.selectbox("Select Brand", ["Shingrix", "Trelegy", "Zejula"])
+segment = st.sidebar.selectbox("Select RACE Segment", ["R", "A", "C", "E"])
+barrier = st.sidebar.multiselect("Select Doctor Barrier", ["No time", "Cost", "Not convinced"])
+objective = st.sidebar.selectbox("Select Objective", ["Awareness", "Adoption", "Retention"])
+specialty = st.sidebar.selectbox("Select Specialty", ["GP", "Cardiologist"])
+persona = st.sidebar.selectbox("Select Persona", ["Uncommitted Vaccinator", "Reluctant Efficiency"])
+response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
+response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Friendly", "Persuasive"])
+
+# --- Clear chat ---
+if st.button("🗑️ Clear Chat"):
+    st.session_state.chat_history = []
+
+# --- Chat display function ---
+def display_chat():
+    for msg in st.session_state.chat_history:
+        if msg["role"] == "user":
+            st.markdown(f"**You:** {msg['content']}")
+        else:
+            st.markdown(f"**AI:** {msg['content']}")
+            # If AI output contains instructions for a chart, generate it
+            if "generate_chart:" in msg["content"]:
+                # Example: AI returns "generate_chart: age_distribution"
+                chart_type = msg["content"].split("generate_chart:")[-1].strip()
+                if chart_type == "patient_profile":
+                    # Example profile chart
+                    data = pd.DataFrame({
+                        "Parameter": ["Age", "Comorbidity", "Risk Level"],
+                        "Value": [65, 2, 8]
+                    })
+                    fig = alt.Chart(data).mark_bar().encode(
+                        x='Parameter',
+                        y='Value',
+                        color='Parameter'
+                    )
+                    st.altair_chart(fig, use_container_width=True)
+                elif chart_type == "medical_trend":
+                    df = pd.DataFrame({
+                        "Month": ["Jan", "Feb", "Mar", "Apr"],
+                        "Visits": [10, 15, 13, 20]
+                    })
+                    fig, ax = plt.subplots()
+                    ax.plot(df["Month"], df["Visits"], marker='o')
+                    ax.set_title("Medical Visits Trend")
+                    ax.set_xlabel("Month")
+                    ax.set_ylabel("Number of Visits")
+                    st.pyplot(fig)
+
+display_chat()
+
+# --- Chat input ---
+with st.form("chat_form", clear_on_submit=True):
+    user_input = st.text_input("Type your message...", key="user_input_box")
+    submitted = st.form_submit_button("➤")
+
+if submitted and user_input.strip():
+    st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
+    
+    # --- AI prompt including visual instructions ---
+    prompt = f"""
+Language: {language}
+User input: {user_input}
+Brand: {brand}
+Persona: {persona}
+Segment: {segment}
+Doctor Barriers: {', '.join(barrier)}
+Objective: {objective}
+Response Tone: {response_tone}
+Instructions: Suggest visuals (charts, patient profile, medical trends) as needed using the format 'generate_chart:<type>'.
+"""
+    response = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[{"role": "system", "content": f"You are a sales assistant in {language}."},
+                  {"role": "user", "content": prompt}],
+        temperature=0.7
+    )
+    ai_output = response.choices[0].message.content
+    st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
+    
+    display_chat()
