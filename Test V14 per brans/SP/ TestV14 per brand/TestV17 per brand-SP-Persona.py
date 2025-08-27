@@ -3,21 +3,20 @@ from PIL import Image
 import requests
 from io import BytesIO
 from groq import Groq
-import streamlit.components.v1 as components
-import os
 from PyPDF2 import PdfReader
+from datetime import datetime
 
-# --- Initialize Groq client (API key directly in code) ---
+# --- Groq API key directly in code ---
 client = Groq(api_key="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")
 
-# --- Brand PDFs dictionary ---
+# --- Brand PDFs dictionary (spaces encoded as %20) ---
 brand_pdfs = {
-    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test V14_per_brans/SP/Test V14_per_brand/Shingrix.pdf",
-    "Trelegy": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Trelegy.pdf",
-    "Zejula": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Zejula.pdf",
+    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Shingrix.pdf",
+    "Trelegy": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Trelegy.pdf",
+    "Zejula": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Zejula.pdf",
 }
 
-# --- Initialize session state ---
+# --- Session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
@@ -38,9 +37,8 @@ if st.sidebar.button("🧹 Clear Chat History"):
 
 st.title("💬 AI Sales Call Assistant")
 
-# --- Load & Display Brand PDF ---
+# --- Load & display PDF ---
 pdf_url = brand_pdfs[brand]
-
 try:
     r = requests.get(pdf_url)
     r.raise_for_status()
@@ -62,20 +60,20 @@ except Exception as e:
     st.markdown(f"👉 [Open PDF manually]({pdf_url})")
     pdf_text = ""
 
-# --- Chatbot interface ---
+# --- Chat interface ---
 user_input = st.text_input("💭 Ask your question:")
 
 if user_input:
     # Build prompt
     prompt = f"""
-    You are a sales assistant helping with brand {brand}.
-    HCP Segments: {', '.join(hcp_segments) if hcp_segments else 'None'}
-    HCP Barriers: {', '.join(hcp_barriers) if hcp_barriers else 'None'}
-    Language: {language}
-    Reference PDF Text: {pdf_text[:2000]}  # limit to avoid huge context
+You are a sales assistant helping with brand {brand}.
+HCP Segments: {', '.join(hcp_segments) if hcp_segments else 'None'}
+HCP Barriers: {', '.join(hcp_barriers) if hcp_barriers else 'None'}
+Language: {language}
+Reference PDF Text: {pdf_text[:2000]}  # limit to avoid huge context
 
-    Question: {user_input}
-    """
+Question: {user_input}
+"""
 
     try:
         response = client.chat.completions.create(
@@ -83,10 +81,9 @@ if user_input:
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
         )
-
         answer = response.choices[0].message.content.strip()
 
-        # Append to history
+        # Append to chat history
         st.session_state.chat_history.append(("You", user_input))
         st.session_state.chat_history.append(("AI", answer))
 
