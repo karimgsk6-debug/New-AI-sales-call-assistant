@@ -5,6 +5,8 @@ from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 from datetime import datetime
+import pandas as pd
+import altair as alt
 
 # --- Optional Word download ---
 try:
@@ -20,10 +22,7 @@ try:
     MATPLOTLIB_AVAILABLE = True
 except ImportError:
     MATPLOTLIB_AVAILABLE = False
-    st.warning("⚠️ matplotlib not installed. Charts will be disabled.")
-
-import pandas as pd
-import altair as alt
+    st.info("⚠️ matplotlib not installed. Charts will fallback to Altair.")
 
 # --- Groq client ---
 client = Groq(api_key="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")
@@ -63,9 +62,11 @@ def display_chat():
             st.markdown(f"**You:** {msg['content']}")
         else:
             st.markdown(f"**AI:** {msg['content']}")
-            # Check for AI visual instructions
+            # Handle chart instructions
             if "generate_chart:" in msg["content"]:
                 chart_type = msg["content"].split("generate_chart:")[-1].strip()
+
+                # Patient Profile Chart (bar)
                 if chart_type == "patient_profile":
                     data = pd.DataFrame({
                         "Parameter": ["Age", "Comorbidity", "Risk Level"],
@@ -77,19 +78,27 @@ def display_chat():
                         color='Parameter'
                     )
                     st.altair_chart(fig, use_container_width=True)
-                elif chart_type == "medical_trend" and MATPLOTLIB_AVAILABLE:
+
+                # Medical Trend Chart (line)
+                elif chart_type == "medical_trend":
                     df = pd.DataFrame({
                         "Month": ["Jan", "Feb", "Mar", "Apr"],
                         "Visits": [10, 15, 13, 20]
                     })
-                    fig, ax = plt.subplots()
-                    ax.plot(df["Month"], df["Visits"], marker='o')
-                    ax.set_title("Medical Visits Trend")
-                    ax.set_xlabel("Month")
-                    ax.set_ylabel("Number of Visits")
-                    st.pyplot(fig)
-                elif chart_type == "medical_trend" and not MATPLOTLIB_AVAILABLE:
-                    st.info("Charts disabled because matplotlib is not installed.")
+                    if MATPLOTLIB_AVAILABLE:
+                        fig, ax = plt.subplots()
+                        ax.plot(df["Month"], df["Visits"], marker='o')
+                        ax.set_title("Medical Visits Trend")
+                        ax.set_xlabel("Month")
+                        ax.set_ylabel("Number of Visits")
+                        st.pyplot(fig)
+                    else:
+                        # fallback to Altair line chart
+                        line_chart = alt.Chart(df).mark_line(point=True).encode(
+                            x='Month',
+                            y='Visits'
+                        )
+                        st.altair_chart(line_chart, use_container_width=True)
 
 display_chat()
 
@@ -101,7 +110,6 @@ with st.form("chat_form", clear_on_submit=True):
 if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
     
-    # --- AI prompt with visual instruction support ---
     prompt = f"""
 Language: {language}
 User input: {user_input}
@@ -111,7 +119,7 @@ Segment: {segment}
 Doctor Barriers: {', '.join(barrier)}
 Objective: {objective}
 Response Tone: {response_tone}
-Instructions: Suggest visuals (charts, patient profile, medical trends) as needed using the format 'generate_chart:<type>'.
+Instructions: Suggest visuals (charts, patient profile, medical trends) using 'generate_chart:<type>'.
 """
 
     response = client.chat.completions.create(
