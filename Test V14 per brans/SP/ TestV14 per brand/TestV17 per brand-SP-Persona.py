@@ -24,7 +24,7 @@ except ImportError:
     st.warning("⚠️ PyPDF2 or PyMuPDF not installed. PDF features disabled.")
 
 # --- Groq client ---
-client = Groq(api_key="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")  # replace with your key
+client = Groq(api_key="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")  # 🔑 Replace with your Groq API key
 
 # --- Session state ---
 if "chat_history" not in st.session_state:
@@ -33,6 +33,8 @@ if "pdf_text" not in st.session_state:
     st.session_state.pdf_text = ""
 if "pdf_images" not in st.session_state:
     st.session_state.pdf_images = []
+if "pdf_visual_text" not in st.session_state:
+    st.session_state.pdf_visual_text = ""
 
 # --- Language ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
@@ -44,9 +46,9 @@ st.title("🧠 AI Sales Call Assistant")
 
 # --- Brands + GitHub PDF URLs (raw links) ---
 brand_pdfs = {
-    "Shingrix": "https://downgit.github.io/#/home?url=https://github.com/karimgsk6-debug/New-AI-sales-call-assistant/blob/main/Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf",
-    "Trelegy": "https://raw.githubusercontent.com/yourusername/repo/main/Trelegy_leaflet.pdf",
-    "Zejula": "https://raw.githubusercontent.com/yourusername/repo/main/Zejula_leaflet.pdf"
+    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Shingrix.pdf",
+    "Trelegy": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Trelegy.pdf",
+    "Zejula": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Zejula.pdf"
 }
 
 # --- Filters ---
@@ -81,30 +83,48 @@ if PDF_AVAILABLE:
         reader = PyPDF2.PdfReader(pdf_file)
         pdf_text = ""
         for page in reader.pages:
-            pdf_text += page.extract_text() + "\n"
+            extracted = page.extract_text()
+            if extracted:
+                pdf_text += extracted + "\n"
         st.session_state.pdf_text = pdf_text[:6000]
 
         # Extract visuals
         pdf_file.seek(0)
         doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
         images = []
+        image_descriptions = []
         for page_num in range(len(doc)):
             for img_index, img in enumerate(doc[page_num].get_images(full=True)):
                 xref = img[0]
                 base_image = doc.extract_image(xref)
                 image_data = base_image["image"]
-                images.append(Image.open(BytesIO(image_data)))
-            if len(images) >= 3:  # show first 3
+                pil_img = Image.open(BytesIO(image_data))
+                images.append(pil_img)
+
+                # --- OPTIONAL: OCR on visuals ---
+                try:
+                    import pytesseract
+                    text_in_image = pytesseract.image_to_string(pil_img)
+                    if text_in_image.strip():
+                        image_descriptions.append(text_in_image.strip())
+                except ImportError:
+                    image_descriptions.append(f"Visual {len(images)} extracted (OCR not available).")
+
+            if len(images) >= 3:  # limit to first 3 visuals
                 break
+
         st.session_state.pdf_images = images
+        st.session_state.pdf_visual_text = "\n".join(image_descriptions)
 
     except Exception as e:
         st.warning(f"⚠️ Could not fetch or parse PDF: {e}")
         st.session_state.pdf_text = ""
         st.session_state.pdf_images = []
+        st.session_state.pdf_visual_text = ""
 else:
     st.session_state.pdf_text = ""
     st.session_state.pdf_images = []
+    st.session_state.pdf_visual_text = ""
 
 # --- Chat input ---
 st.subheader("💬 Chatbot Interface")
@@ -116,6 +136,7 @@ if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
 
     pdf_context = st.session_state.pdf_text if st.session_state.pdf_text else "No leaflet content available."
+    visual_context = st.session_state.pdf_visual_text if st.session_state.pdf_visual_text else "No visual info available."
 
     prompt = f"""
 Language: {language}
@@ -127,12 +148,16 @@ Doctor Barriers: {', '.join(barrier) if barrier else 'None'}
 Specialty: {specialty}
 Persona: {persona}
 
---- Official Leaflet Info ---
+--- Official Leaflet Info (Text) ---
 {pdf_context}
+
+--- Official Leaflet Visuals (OCR / extracted text) ---
+{visual_context}
 
 --- Instructions ---
 Use APACT method (Acknowledge → Probing → Answer → Confirm → Transition).
-Provide actionable sales suggestions aligned with the leaflet content.
+Provide actionable sales suggestions aligned with BOTH the text and visuals of the leaflet.
+Adjust tone: {response_tone}, Length: {response_length}.
 """
 
     response = client.chat.completions.create(
