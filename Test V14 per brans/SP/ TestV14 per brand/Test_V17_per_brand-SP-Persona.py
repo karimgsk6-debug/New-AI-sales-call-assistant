@@ -1,31 +1,24 @@
 import streamlit as st
-from PIL import Image
-import requests
-from io import BytesIO
 from groq import Groq
-from PyPDF2 import PdfReader
-import fitz  # PyMuPDF
+import requests
 from datetime import datetime
 
 # --- Groq API key directly in code ---
 client = Groq(api_key="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")
 
-# --- Brand PDFs dictionary (spaces encoded as %20) ---
-brand_pdfs = {
-    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Shingrix.pdf",
-    "Trelegy": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Trelegy.pdf",
-    "Zejula": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Zejula.pdf",
+# --- Brand scripts dictionary ---
+brand_scripts = {
+    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Test_V17_per_brand-SP-Persona.py",
+    # Add other brands if needed
 }
 
 # --- Session state ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
-if "pdf_images" not in st.session_state:
-    st.session_state.pdf_images = []
 
 # --- Sidebar ---
 st.sidebar.title("⚙️ Settings")
-brand = st.sidebar.selectbox("Select Brand", list(brand_pdfs.keys()))
+brand = st.sidebar.selectbox("Select Brand", list(brand_scripts.keys()))
 hcp_segments = st.sidebar.multiselect(
     "Select HCP Segments", 
     ["Potential", "Adopter", "Laggard", "Brand Supporter", "Competitor Supporter"]
@@ -40,44 +33,21 @@ if st.sidebar.button("🧹 Clear Chat History"):
 
 st.title("💬 AI Sales Call Assistant")
 
-# --- Load & display PDF ---
-pdf_url = brand_pdfs[brand]
-pdf_text = ""
-st.session_state.pdf_images = []
+# --- Load & display Python file ---
+script_url = brand_scripts[brand]
+script_text = ""
 
 try:
-    r = requests.get(pdf_url)
+    r = requests.get(script_url)
     r.raise_for_status()
+    script_text = r.text
 
-    if not r.content.startswith(b"%PDF"):
-        st.warning("⚠️ File is not a valid PDF. Showing embedded viewer instead.")
-        st.markdown(f'<iframe src="{pdf_url}" width="100%" height="600"></iframe>', unsafe_allow_html=True)
-    else:
-        pdf_file = BytesIO(r.content)
-        pdf_reader = PdfReader(pdf_file)
-        pdf_text = "".join(page.extract_text() or "" for page in pdf_reader.pages)
-
-        with st.expander("📑 PDF Extracted Text", expanded=False):
-            st.text(pdf_text)
-
-        # --- Extract visuals ---
-        pdf_file.seek(0)
-        doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
-        images = []
-        for page_num in range(len(doc)):
-            for img_index, img in enumerate(doc[page_num].get_images(full=True)):
-                xref = img[0]
-                base_image = doc.extract_image(xref)
-                image_data = base_image["image"]
-                pil_img = Image.open(BytesIO(image_data))
-                images.append(pil_img)
-            if len(images) >= 3:  # limit to first 3 images
-                break
-        st.session_state.pdf_images = images
+    with st.expander("📄 Extracted Script Content", expanded=False):
+        st.text(script_text[:2000])  # limit preview to first 2000 chars
 
 except Exception as e:
-    st.error(f"⚠️ Could not fetch or parse PDF: {e}")
-    st.markdown(f"👉 [Open PDF manually]({pdf_url})")
+    st.error(f"⚠️ Could not fetch or parse script: {e}")
+    st.markdown(f"👉 [Open file manually]({script_url})")
 
 # --- Chat interface ---
 user_input = st.text_input("💭 Ask your question:")
@@ -88,7 +58,7 @@ You are a sales assistant helping with brand {brand}.
 HCP Segments: {', '.join(hcp_segments) if hcp_segments else 'None'}
 HCP Barriers: {', '.join(hcp_barriers) if hcp_barriers else 'None'}
 Language: {language}
-Reference PDF Text: {pdf_text[:2000]}  # limit to avoid huge context
+Reference Script Content: {script_text[:2000]}  # limit to avoid huge context
 
 Question: {user_input}
 """
@@ -108,9 +78,3 @@ Question: {user_input}
 # --- Display chat history ---
 for sender, msg in st.session_state.chat_history:
     st.markdown(f"**{sender}:** {msg}")
-
-# --- Display extracted visuals ---
-if st.session_state.pdf_images:
-    st.subheader("📊 Extracted Visuals from Leaflet")
-    for img in st.session_state.pdf_images:
-        st.image(img, use_container_width=True)
