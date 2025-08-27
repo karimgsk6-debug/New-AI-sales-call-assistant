@@ -12,7 +12,7 @@ client = Groq(api_key="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"
 
 # --- Brand PDFs dictionary ---
 brand_pdfs = {
-    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Shingrix.pdf",
+    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test V14_per_brans/SP/Test V14_per_brand/Shingrix.pdf",
     "Trelegy": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Trelegy.pdf",
     "Zejula": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Zejula.pdf",
 }
