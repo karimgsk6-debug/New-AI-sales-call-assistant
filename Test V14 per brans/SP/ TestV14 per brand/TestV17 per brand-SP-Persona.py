@@ -35,6 +35,8 @@ if "pdf_images" not in st.session_state:
     st.session_state.pdf_images = []
 if "pdf_visual_text" not in st.session_state:
     st.session_state.pdf_visual_text = ""
+if "pdf_failed" not in st.session_state:
+    st.session_state.pdf_failed = False
 
 # --- Language ---
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
@@ -46,9 +48,9 @@ st.title("🧠 AI Sales Call Assistant")
 
 # --- Brands + GitHub PDF URLs (raw links) ---
 brand_pdfs = {
-    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Shingrix.pdf",
-    "Trelegy": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Trelegy.pdf",
-    "Zejula": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/Test%20V14%20per%20brans/SP/TestV14%20per%20brand/Zejula.pdf"
+    "Shingrix": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Shingrix.pdf",
+    "Trelegy": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Trelegy.pdf",
+    "Zejula": "https://raw.githubusercontent.com/karimgsk6-debug/New-AI-sales-call-assistant/main/TestV14_per_brans/SP/TestV14_per_brand/Zejula.pdf"
 }
 
 # --- Filters ---
@@ -77,6 +79,11 @@ if PDF_AVAILABLE:
         pdf_url = brand_pdfs[brand]
         r = requests.get(pdf_url)
         r.raise_for_status()
+
+        # Check if it's really a PDF
+        if not r.content.startswith(b"%PDF"):
+            raise ValueError("File is not a valid PDF (GitHub may be serving HTML instead).")
+
         pdf_file = BytesIO(r.content)
 
         # Extract text
@@ -115,16 +122,19 @@ if PDF_AVAILABLE:
 
         st.session_state.pdf_images = images
         st.session_state.pdf_visual_text = "\n".join(image_descriptions)
+        st.session_state.pdf_failed = False
 
     except Exception as e:
         st.warning(f"⚠️ Could not fetch or parse PDF: {e}")
         st.session_state.pdf_text = ""
         st.session_state.pdf_images = []
         st.session_state.pdf_visual_text = ""
+        st.session_state.pdf_failed = True
 else:
     st.session_state.pdf_text = ""
     st.session_state.pdf_images = []
     st.session_state.pdf_visual_text = ""
+    st.session_state.pdf_failed = True
 
 # --- Chat input ---
 st.subheader("💬 Chatbot Interface")
@@ -184,6 +194,15 @@ if st.session_state.pdf_images:
     st.subheader("📊 Extracted Visuals from Leaflet")
     for img in st.session_state.pdf_images:
         st.image(img, use_container_width=True)
+
+# --- Fallback PDF viewer if parsing failed ---
+if st.session_state.pdf_failed:
+    st.subheader("📖 Leaflet Viewer (Fallback)")
+    pdf_url = brand_pdfs[brand]
+    st.markdown(
+        f'<iframe src="{pdf_url}" width="100%" height="600px" style="border: none;"></iframe>',
+        unsafe_allow_html=True
+    )
 
 # --- Word download ---
 if DOCX_AVAILABLE and st.session_state.chat_history:
