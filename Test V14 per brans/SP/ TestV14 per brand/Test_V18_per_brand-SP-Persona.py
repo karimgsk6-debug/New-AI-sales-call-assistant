@@ -5,10 +5,10 @@ from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 from datetime import datetime
-import pandas as pd
-import altair as alt
+import matplotlib.pyplot as plt
+import re
 
-# --- Optional Word download ---
+# --- Optional dependency for Word download ---
 try:
     from docx import Document
     DOCX_AVAILABLE = True
@@ -16,16 +16,8 @@ except ImportError:
     DOCX_AVAILABLE = False
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
-# --- Optional matplotlib for charts ---
-try:
-    import matplotlib.pyplot as plt
-    MATPLOTLIB_AVAILABLE = True
-except ImportError:
-    MATPLOTLIB_AVAILABLE = False
-    st.info("⚠️ matplotlib not installed. Charts will fallback to Altair.")
-
-# --- Groq client ---
-client = Groq(api_key="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")
+# --- Initialize Groq client ---
+client = Groq(api_key="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")  # Add your Groq API key here
 
 # --- Session state ---
 if "chat_history" not in st.session_state:
@@ -35,70 +27,123 @@ if "chat_history" not in st.session_state:
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
 # --- GSK Logo ---
-logo_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
-st.image(logo_url, width=150)
-st.title("🧠 AI Sales Call Assistant")
+logo_local_path = "images/gsk_logo.png"
+logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
+col1, col2 = st.columns([1,5])
+with col1:
+    try:
+        logo_img = Image.open(logo_local_path)
+        st.image(logo_img, width=120)
+    except:
+        st.image(logo_fallback_url, width=120)
+with col2:
+    st.title("🧠 AI Sales Call Assistant with Evidence & Figures")
 
-# --- Sidebar Filters ---
-brand = st.sidebar.selectbox("Select Brand", ["Shingrix", "Trelegy", "Zejula"])
-segment = st.sidebar.selectbox("Select RACE Segment", ["R", "A", "C", "E"])
-barrier = st.sidebar.multiselect("Select Doctor Barrier", ["No time", "Cost", "Not convinced"])
-objective = st.sidebar.selectbox("Select Objective", ["Awareness", "Adoption", "Retention"])
-specialty = st.sidebar.selectbox("Select Specialty", ["GP", "Cardiologist"])
-persona = st.sidebar.selectbox("Select Persona", ["Uncommitted Vaccinator", "Reluctant Efficiency"])
-response_length = st.sidebar.selectbox("Response Length", ["Short", "Medium", "Long"])
-response_tone = st.sidebar.selectbox("Response Tone", ["Formal", "Friendly", "Persuasive"])
+# --- Brand & product data ---
+gsk_brands = {
+    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Trelegy": "https://example.com/trelegy-leaflet",
+    "Zejula": "https://example.com/zejula-leaflet",
+}
+gsk_brands_images = {
+    "Trelegy": "https://www.example.com/trelegy.png",
+    "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
+    "Zejula": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
+}
+
+# --- Filters & options ---
+race_segments = [
+    "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
+    "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine but Convinced about Shingrix data.",
+    "C – Conversion: Proactively initiate discussion with specific patient profile but For other patient profiles he is not prescribing yet.",
+    "E – Engagement: Proactively prescribe to different patient profiles"
+]
+doctor_barriers = [
+    "HCP does not consider HZ as risk",
+    "No time to discuss preventive measures",
+    "Cost considerations",
+    "Not convinced HZ Vx effective",
+    "Accessibility issues"
+]
+objectives = ["Awareness", "Adoption", "Retention"]
+specialties = ["GP", "Cardiologist", "Dermatologist", "Endocrinologist", "Pulmonologist"]
+personas = [
+    "Uncommitted Vaccinator",
+    "Reluctant Efficiency",
+    "Patient Influenced",
+    "Committed Vaccinator"
+]
+gsk_approaches = [
+    "Use data-driven evidence",
+    "Focus on patient outcomes",
+    "Leverage storytelling techniques"
+]
+sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
+
+# --- Sidebar filters ---
+st.sidebar.header("Filters & Options")
+brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
+segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
+barrier = st.sidebar.multiselect("Select Doctor Barrier / اختر حاجز الطبيب", options=doctor_barriers, default=[])
+objective = st.sidebar.selectbox("Select Objective / اختر الهدف", options=objectives)
+specialty = st.sidebar.selectbox("Select Doctor Specialty / اختر تخصص الطبيب", options=specialties)
+persona = st.sidebar.selectbox("Select HCP Persona / اختر شخصية الطبيب", options=personas)
+response_length = st.sidebar.selectbox("Response Length / اختر طول الرد", ["Short", "Medium", "Long"])
+response_tone = st.sidebar.selectbox("Response Tone / اختر نبرة الرد", ["Formal", "Casual", "Friendly", "Persuasive"])
+interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
+
+# --- Display brand image safely ---
+image_path = gsk_brands_images.get(brand)
+try:
+    if image_path.startswith("http"):
+        response = requests.get(image_path)
+        img = Image.open(BytesIO(response.content))
+    else:
+        img = Image.open(image_path)
+    st.image(img, width=200)
+except:
+    st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
+    st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
 # --- Clear chat ---
-if st.button("🗑️ Clear Chat"):
+if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 
-# --- Display chat ---
+# --- Chat history display ---
+st.subheader("💬 Chatbot Interface")
 chat_placeholder = st.empty()
 
 def display_chat():
+    chat_html = ""
     for msg in st.session_state.chat_history:
+        time = msg.get("time", "")
+        content = msg["content"].replace('\n', '<br>')
+
+        # Render any detected scientific evidence
+        if "EVIDENCE:" in msg["content"]:
+            st.markdown("### 📑 Scientific Evidence")
+            evidences = re.findall(r"EVIDENCE:\s*(.*)", msg["content"])
+            for ev in evidences:
+                st.markdown(f"- {ev}")
+
+        # Render any placeholder figures suggested by AI
+        if "FIGURE:" in msg["content"]:
+            st.markdown("### 📊 Suggested Scientific Figure")
+            st.image("https://via.placeholder.com/400x250.png?text=Scientific+Figure", caption="AI Suggested Figure")
+
         if msg["role"] == "user":
-            st.markdown(f"**You:** {msg['content']}")
+            chat_html += f"""
+            <div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>
+                {content}<span style='font-size:10px; color:gray;'><br>{time}</span>
+            </div>
+            """
         else:
-            st.markdown(f"**AI:** {msg['content']}")
-            # Handle chart instructions
-            if "generate_chart:" in msg["content"]:
-                chart_type = msg["content"].split("generate_chart:")[-1].strip()
-
-                # Patient Profile Chart (bar)
-                if chart_type == "patient_profile":
-                    data = pd.DataFrame({
-                        "Parameter": ["Age", "Comorbidity", "Risk Level"],
-                        "Value": [65, 2, 8]
-                    })
-                    fig = alt.Chart(data).mark_bar().encode(
-                        x='Parameter',
-                        y='Value',
-                        color='Parameter'
-                    )
-                    st.altair_chart(fig, use_container_width=True)
-
-                # Medical Trend Chart (line)
-                elif chart_type == "medical_trend":
-                    df = pd.DataFrame({
-                        "Month": ["Jan", "Feb", "Mar", "Apr"],
-                        "Visits": [10, 15, 13, 20]
-                    })
-                    if MATPLOTLIB_AVAILABLE:
-                        fig, ax = plt.subplots()
-                        ax.plot(df["Month"], df["Visits"], marker='o')
-                        ax.set_title("Medical Visits Trend")
-                        ax.set_xlabel("Month")
-                        ax.set_ylabel("Number of Visits")
-                        st.pyplot(fig)
-                    else:
-                        # fallback to Altair line chart
-                        line_chart = alt.Chart(df).mark_line(point=True).encode(
-                            x='Month',
-                            y='Visits'
-                        )
-                        st.altair_chart(line_chart, use_container_width=True)
+            chat_html += f"""
+            <div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:5px; display:inline-block; max-width:80%;'>
+                {content}<span style='font-size:10px; color:gray;'><br>{time}</span>
+            </div>
+            """
+    chat_placeholder.markdown(chat_html, unsafe_allow_html=True)
 
 display_chat()
 
@@ -110,24 +155,44 @@ with st.form("chat_form", clear_on_submit=True):
 if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
     
+    # --- Enhanced AI prompt ---
     prompt = f"""
 Language: {language}
 User input: {user_input}
-Brand: {brand}
-Persona: {persona}
-Segment: {segment}
-Doctor Barriers: {', '.join(barrier)}
+RACE Segment: {segment}
+Doctor Barrier: {', '.join(barrier) if barrier else 'None'}
 Objective: {objective}
+Brand: {brand}
+Doctor Specialty: {specialty}
+HCP Persona: {persona}
+
+Approved Sales Approaches:
+{', '.join(gsk_approaches)}
+
+Sales Call Flow Steps:
+{" → ".join(sales_call_flow)}
+
+Use APACT (Acknowledge → Probing → Answer → Confirm → Transition) for objections.
+
+Response should include:
+1. Main answer tailored to persona.
+2. **Scientific evidence** with references (prefix with EVIDENCE:).
+3. **Visual suggestion** for figures or charts (prefix with FIGURE:).
+4. If relevant, propose a simple chart idea (e.g., bar chart comparing efficacy).
+Response Length: {response_length}
 Response Tone: {response_tone}
-Instructions: Suggest visuals (charts, patient profile, medical trends) using 'generate_chart:<type>'.
 """
 
+    # --- Call Groq API ---
     response = client.chat.completions.create(
         model="meta-llama/llama-4-scout-17b-16e-instruct",
-        messages=[{"role": "system", "content": f"You are a sales assistant in {language}."},
-                  {"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": f"You are a helpful AI assistant that responds in {language} with evidence and visuals."},
+            {"role": "user", "content": prompt}
+        ],
         temperature=0.7
     )
+
     ai_output = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
     
@@ -143,3 +208,6 @@ if DOCX_AVAILABLE and st.session_state.chat_history:
         word_buffer = io_bytes()
         doc.save(word_buffer)
         st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
+
+# --- Brand leaflet ---
+st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
