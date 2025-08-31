@@ -117,7 +117,8 @@ try:
                 bx, by, ex, ey, _, text, *_ = block
                 block_rect = fitz.Rect(bx, by, ex, ey)
                 if rect.intersects(block_rect) or abs(block_rect.y0 - rect.y1) < 50:
-                    caption_text += " " + text.strip()
+                    if isinstance(text, str):
+                        caption_text += " " + text.strip()
             caption_text = caption_text.strip() or f"Figure {len(pdf_figures)+1}"
             pdf_figures.append({"image": img_bytes, "caption": caption_text})
 
@@ -228,21 +229,4 @@ FIGURES:
         temperature=0.7
     )
 
-    ai_output = response.choices[0].message.content
-    st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
-
-    display_chat()
-
-# --- Word download ---
-if DOCX_AVAILABLE and st.session_state.chat_history:
-    latest_ai = [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "ai"]
-    if latest_ai:
-        doc = Document()
-        doc.add_heading("AI Sales Call Response", 0)
-        doc.add_paragraph(latest_ai[-1])
-        word_buffer = io_bytes()
-        doc.save(word_buffer)
-        st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
-
-# --- Brand leaflet link ---
-st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
+    ai_output
