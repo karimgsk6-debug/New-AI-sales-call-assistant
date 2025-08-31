@@ -91,7 +91,7 @@ response_tone = st.sidebar.selectbox("Response Tone / اختر نبرة الرد
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
 # --- Load Shingrix PDF (text + figures) ---
-pdf_text, pdf_figures = "", []  # pdf_figures = list of dicts {image, caption}
+pdf_text, pdf_figures = "", []
 pdf_path = gsk_brands[brand]
 
 try:
@@ -123,11 +123,10 @@ try:
             pdf_figures.append({"image": img_bytes, "caption": caption_text})
 
     st.success("✅ Shingrix leaflet loaded with text and figures.")
-
 except Exception as e:
     st.warning(f"⚠️ Could not process Shingrix PDF: {e}")
 
-# --- Display brand image safely ---
+# --- Display brand image ---
 image_path = gsk_brands_images.get(brand)
 try:
     if image_path.startswith("http"):
@@ -144,7 +143,7 @@ except:
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 
-# --- Chat history display ---
+# --- Chat display ---
 st.subheader("💬 Chatbot Interface")
 chat_placeholder = st.empty()
 
@@ -154,7 +153,7 @@ def display_chat():
         time = msg.get("time", "")
         content = msg["content"].replace('\n', '<br>')
 
-        # Auto-embed figures by caption
+        # Auto-embed figures
         for f in pdf_figures:
             caption = f["caption"]
             img_bytes = f["image"]
@@ -162,17 +161,9 @@ def display_chat():
             content = content.replace(caption, f"{caption}<br>{img_html}")
 
         if msg["role"] == "user":
-            chat_html += f"""
-            <div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>
-                {content}<span style='font-size:10px; color:gray;'><br>{time}</span>
-            </div>
-            """
+            chat_html += f"<div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>{content}<span style='font-size:10px; color:gray;'><br>{time}</span></div>"
         else:
-            chat_html += f"""
-            <div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:5px; display:inline-block; max-width:80%;'>
-                {content}<span style='font-size:10px; color:gray;'><br>{time}</span>
-            </div>
-            """
+            chat_html += f"<div style='text-align:left; background:#f0f2f6; padding:10px; border-radius:15px 15px 15px 0px; margin:5px; display:inline-block; max-width:80%;'>{content}<span style='font-size:10px; color:gray;'><br>{time}</span></div>"
     chat_placeholder.markdown(chat_html, unsafe_allow_html=True)
 
 display_chat()
@@ -185,7 +176,6 @@ with st.form("chat_form", clear_on_submit=True):
 if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
 
-    # Build AI prompt
     approaches_str = "\n".join(gsk_approaches)
     flow_str = " → ".join(sales_call_flow)
     figure_texts = "\n".join([f"{i+1}. {f['caption']}" for i, f in enumerate(pdf_figures)])
@@ -221,7 +211,7 @@ FIGURES:
 
     # --- Call Groq API ---
     response = client.chat.completions.create(
-        model="meta-llama/Llama-4-17b-chat",
+        model="llama-3.1-70b-versatile",  # verified model
         messages=[
             {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
             {"role": "user", "content": prompt}
@@ -229,4 +219,20 @@ FIGURES:
         temperature=0.7
     )
 
-    ai_output
+    ai_output = response.choices[0].message.content
+    st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
+    display_chat()
+
+# --- Word download ---
+if DOCX_AVAILABLE and st.session_state.chat_history:
+    latest_ai = [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "ai"]
+    if latest_ai:
+        doc = Document()
+        doc.add_heading("AI Sales Call Response", 0)
+        doc.add_paragraph(latest_ai[-1])
+        word_buffer = io_bytes()
+        doc.save(word_buffer)
+        st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
+
+# --- Brand leaflet link ---
+st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
