@@ -17,8 +17,8 @@ except ImportError:
     DOCX_AVAILABLE = False
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
-# --- Initialize Groq client via Streamlit secrets ---
-client = Groq(api_key=st.secrets["GROQ"]["API_KEY"])
+# --- Initialize Groq client via old secret file ---
+client = Groq(api_key=st.secrets["GROQ"]["API_KEY"])  # keep old secret structure
 
 # --- Session state ---
 if "chat_history" not in st.session_state:
@@ -91,8 +91,8 @@ interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chat
 
 # --- Load Shingrix PDF (text + figures) ---
 pdf_text, pdf_figures = "", []  # pdf_figures = list of dicts {image, caption}
-
 pdf_path = gsk_brands[brand]
+
 try:
     # Extract text
     with pdfplumber.open(pdf_path) as pdf:
