@@ -22,9 +22,7 @@ except ImportError:
 # Groq API key & model
 # -------------------------
 GROQ_API_KEY = "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"
-
-# Replace this with a model from client.models.list()
-SELECTED_MODEL = "YOUR_VALID_MODEL_NAME_HERE"
+SELECTED_MODEL = "YOUR_VALID_MODEL_NAME_HERE"  # Set a model from client.models.list()
 
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -200,7 +198,7 @@ with st.form("chat_form", clear_on_submit=True):
 if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
 
-    # Select most relevant figures
+    # Select relevant figures
     def select_relevant_figures(user_query, figures, top_k=2):
         if not figures:
             return []
@@ -245,18 +243,21 @@ Include relevant figures from the leaflet (only captions) in your response:
 """
 
     # -------------------------
-    # Call Groq API
+    # Safe Groq API call
     # -------------------------
-    response = client.chat.completions.create(
-        model=SELECTED_MODEL,
-        messages=[
-            {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7
-    )
+    try:
+        response = client.chat.completions.create(
+            model=SELECTED_MODEL,
+            messages=[
+                {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+        ai_output = response.choices[0].message.content
+    except Exception as e:
+        ai_output = f"⚠️ Error calling Groq API:\n{e}"
 
-    ai_output = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
     display_chat(selected_figures=selected_figures)
 
