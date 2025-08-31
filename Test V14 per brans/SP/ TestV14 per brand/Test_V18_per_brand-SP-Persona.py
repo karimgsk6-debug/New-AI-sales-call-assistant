@@ -8,6 +8,8 @@ import re
 import fitz  # PyMuPDF
 import pdfplumber
 import base64
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # --- Optional Word download ---
 try:
@@ -110,7 +112,6 @@ try:
             base_image = doc.extract_image(xref)
             img_bytes = base_image["image"]
 
-            # Find nearby text as caption
             rect = fitz.Rect(page.get_image_bbox(img))
             caption_text = ""
             for block in blocks:
@@ -147,18 +148,19 @@ if st.button("🗑️ Clear Chat / مسح المحادثة"):
 st.subheader("💬 Chatbot Interface")
 chat_placeholder = st.empty()
 
-def display_chat():
+def display_chat(selected_figures=None):
     chat_html = ""
     for msg in st.session_state.chat_history:
         time = msg.get("time", "")
         content = msg["content"].replace('\n', '<br>')
 
-        # Auto-embed figures
-        for f in pdf_figures:
-            caption = f["caption"]
-            img_bytes = f["image"]
-            img_html = f'<img src="data:image/png;base64,{base64.b64encode(img_bytes).decode()}" width="400"/>'
-            content = content.replace(caption, f"{caption}<br>{img_html}")
+        # Embed only selected figures
+        if selected_figures:
+            for f in selected_figures:
+                caption = f["caption"]
+                img_bytes = f["image"]
+                img_html = f'<img src="data:image/png;base64,{base64.b64encode(img_bytes).decode()}" width="400"/>'
+                content = content.replace(caption, f"{caption}<br>{img_html}")
 
         if msg["role"] == "user":
             chat_html += f"<div style='text-align:right; background:#dcf8c6; padding:10px; border-radius:15px 15px 0px 15px; margin:5px; display:inline-block; max-width:80%;'>{content}<span style='font-size:10px; color:gray;'><br>{time}</span></div>"
@@ -176,9 +178,22 @@ with st.form("chat_form", clear_on_submit=True):
 if submitted and user_input.strip():
     st.session_state.chat_history.append({"role": "user", "content": user_input, "time": datetime.now().strftime("%H:%M")})
 
+    # --- Select most relevant figures ---
+    def select_relevant_figures(user_query, figures, top_k=2):
+        if not figures:
+            return []
+        captions = [f["caption"] for f in figures]
+        corpus = captions + [user_query]
+        vectorizer = TfidfVectorizer().fit_transform(corpus)
+        similarity = cosine_similarity(vectorizer[-1:], vectorizer[:-1])
+        top_indices = similarity[0].argsort()[::-1][:top_k]
+        return [figures[i] for i in top_indices]
+
+    selected_figures = select_relevant_figures(user_input, pdf_figures, top_k=2)
+
     approaches_str = "\n".join(gsk_approaches)
     flow_str = " → ".join(sales_call_flow)
-    figure_texts = "\n".join([f"{i+1}. {f['caption']}" for i, f in enumerate(pdf_figures)])
+    figure_texts = "\n".join([f"{i+1}. {f['caption']}" for i, f in enumerate(selected_figures)])
 
     prompt = f"""
 Language: {language}
@@ -211,7 +226,7 @@ FIGURES:
 
     # --- Call Groq API ---
     response = client.chat.completions.create(
-        model="llama-3.1-70b-versatile",  # verified model
+        model="llama-3.1-70b-versatile",
         messages=[
             {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
             {"role": "user", "content": prompt}
@@ -221,7 +236,7 @@ FIGURES:
 
     ai_output = response.choices[0].message.content
     st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
-    display_chat()
+    display_chat(selected_figures=selected_figures)
 
 # --- Word download ---
 if DOCX_AVAILABLE and st.session_state.chat_history:
