@@ -18,7 +18,7 @@ except ImportError:
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
 # --- Initialize Groq client via Streamlit secrets ---
-client = Groq(api_key=st.secrets["GROQ"]["API_KEY"])
+client = Groq(api_key=st.secrets["GROQ"]["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"])
 
 # --- Session state ---
 if "chat_history" not in st.session_state:
