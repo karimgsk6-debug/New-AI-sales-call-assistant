@@ -216,9 +216,9 @@ Include relevant figures from the leaflet (only captions) in your response:
 {figure_texts}
 """
 
-    # Call Groq API
+    # Call Groq API with safe model
     response = client.chat.completions.create(
-        model="meta-llama/Llama-4-17b-chat",
+        model="llama-3.1-chat",
         messages=[
             {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
             {"role": "user", "content": prompt}
@@ -241,5 +241,4 @@ if DOCX_AVAILABLE and st.session_state.chat_history:
         doc.save(word_buffer)
         st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
 
-# Brand leaflet link
-st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
+st.markdown(f"[Brand Leaflet - {brand}]({pdf_path})")
