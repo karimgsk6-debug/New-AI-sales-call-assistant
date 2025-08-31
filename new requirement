@@ -5,3 +5,5 @@ groq
 python-docx
 PyPDF2
 PyMuPDF
+pdfplumber
+PyMuPDF
