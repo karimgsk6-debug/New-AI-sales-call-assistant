@@ -5,8 +5,9 @@ from io import BytesIO, BytesIO as io_bytes
 import groq
 from groq import Groq
 from datetime import datetime
-import matplotlib.pyplot as plt
 import re
+import fitz  # PyMuPDF
+import pdfplumber
 
 # --- Optional dependency for Word download ---
 try:
@@ -41,7 +42,7 @@ with col2:
 
 # --- Brand & product data ---
 gsk_brands = {
-    "Shingrix": "https://example.com/shingrix-leaflet",
+    "Shingrix": "Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf",
     "Trelegy": "https://example.com/trelegy-leaflet",
     "Zejula": "https://example.com/zejula-leaflet",
 }
@@ -92,6 +93,37 @@ response_length = st.sidebar.selectbox("Response Length / اختر طول الر
 response_tone = st.sidebar.selectbox("Response Tone / اختر نبرة الرد", ["Formal", "Casual", "Friendly", "Persuasive"])
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
+# --- Extract PDF if Shingrix is selected ---
+pdf_text, pdf_images = "", []
+if brand == "Shingrix":
+    pdf_path = gsk_brands[brand]
+    try:
+        # Extract text
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                pdf_text += page.extract_text() or ""
+
+        # Extract images
+        doc = fitz.open(pdf_path)
+        for i, page in enumerate(doc):
+            for img_index, img in enumerate(page.get_images(full=True)):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image_bytes = base_image["image"]
+                pdf_images.append(image_bytes)
+
+        st.success("✅ Extracted Shingrix leaflet content successfully.")
+
+        with st.expander("📑 Extracted Text from Leaflet"):
+            st.write(pdf_text[:2000] + "...")
+
+        with st.expander("🖼 Extracted Figures from Leaflet"):
+            for i, img_bytes in enumerate(pdf_images):
+                st.image(img_bytes, caption=f"Extracted Figure {i+1}", use_column_width=True)
+
+    except Exception as e:
+        st.warning(f"⚠️ Could not process PDF: {e}")
+
 # --- Display brand image safely ---
 image_path = gsk_brands_images.get(brand)
 try:
@@ -119,17 +151,19 @@ def display_chat():
         time = msg.get("time", "")
         content = msg["content"].replace('\n', '<br>')
 
-        # Render any detected scientific evidence
-        if "EVIDENCE:" in msg["content"]:
+        evidences = re.findall(r"EVIDENCE:\s*(.*)", msg["content"])
+        if evidences:
             st.markdown("### 📑 Scientific Evidence")
-            evidences = re.findall(r"EVIDENCE:\s*(.*)", msg["content"])
             for ev in evidences:
                 st.markdown(f"- {ev}")
 
-        # Render any placeholder figures suggested by AI
-        if "FIGURE:" in msg["content"]:
-            st.markdown("### 📊 Suggested Scientific Figure")
-            st.image("https://via.placeholder.com/400x250.png?text=Scientific+Figure", caption="AI Suggested Figure")
+        figures = re.findall(r"FIGURE:\s*(.*)", msg["content"])
+        if figures:
+            st.markdown("### 📊 Suggested Scientific Figures")
+            for i, fig in enumerate(figures):
+                st.markdown(f"- {fig}")
+                if i < len(pdf_images):  # show extracted figure if available
+                    st.image(pdf_images[i], caption=f"Matched Figure {i+1}", use_column_width=True)
 
         if msg["role"] == "user":
             chat_html += f"""
@@ -174,14 +208,15 @@ Sales Call Flow Steps:
 
 Use APACT (Acknowledge → Probing → Answer → Confirm → Transition) for objections.
 
-Response should include:
-1. Main answer tailored to persona.
-2. **Scientific evidence** with references (prefix with EVIDENCE:).
-3. **Visual suggestion** for figures or charts (prefix with FIGURE:).
-4. If relevant, propose a simple chart idea (e.g., bar chart comparing efficacy).
-Response Length: {response_length}
-Response Tone: {response_tone}
+⚠️ VERY IMPORTANT:
+MAIN RESPONSE: Provide tailored guidance.
+EVIDENCE: Add 2–3 references from real studies or from leaflet text.
+FIGURE: Suggest relevant figure/chart idea.
+
 """
+
+    if pdf_text:
+        prompt += f"\n\nLeaflet content provided:\n{pdf_text[:3000]}..."
 
     # --- Call Groq API ---
     response = client.chat.completions.create(
@@ -209,5 +244,6 @@ if DOCX_AVAILABLE and st.session_state.chat_history:
         doc.save(word_buffer)
         st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
 
-# --- Brand leaflet ---
-st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
+# --- Brand leaflet link ---
+if brand in gsk_brands and gsk_brands[brand].endswith(".pdf"):
+    st.markdown(f"[📄 Open {brand} Leaflet PDF]({gsk_brands[brand]})")
