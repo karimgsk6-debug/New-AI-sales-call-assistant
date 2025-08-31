@@ -99,6 +99,7 @@ try:
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             pdf_text += page.extract_text() or ""
+    pdf_text_truncated = pdf_text[:2000]
 
     # Extract figures + captions
     doc = fitz.open(pdf_path)
@@ -109,7 +110,7 @@ try:
             base_image = doc.extract_image(xref)
             img_bytes = base_image["image"]
 
-            # find nearby text as caption
+            # Find nearby text as caption
             rect = fitz.Rect(page.get_image_bbox(img))
             caption_text = ""
             for block in blocks:
@@ -152,17 +153,12 @@ def display_chat():
         time = msg.get("time", "")
         content = msg["content"].replace('\n', '<br>')
 
-        # Display figures referenced in AI response
-        figures = re.findall(r"FIGURE:(.*)", msg["content"])
-        for fig_req in figures:
-            captions = [f["caption"] for f in pdf_figures]
-            from difflib import get_close_matches
-            best_match = get_close_matches(fig_req.strip().lower(), [c.lower() for c in captions], n=1, cutoff=0.3)
-            if best_match:
-                idx = [c.lower() for c in captions].index(best_match[0])
-                img_bytes = pdf_figures[idx]["image"]
-                img_html = f'<img src="data:image/png;base64,{base64.b64encode(img_bytes).decode()}" width="400"/>'
-                content += f"<br>{img_html}"
+        # Auto-embed figures by caption
+        for f in pdf_figures:
+            caption = f["caption"]
+            img_bytes = f["image"]
+            img_html = f'<img src="data:image/png;base64,{base64.b64encode(img_bytes).decode()}" width="400"/>'
+            content = content.replace(caption, f"{caption}<br>{img_html}")
 
         if msg["role"] == "user":
             chat_html += f"""
@@ -191,6 +187,8 @@ if submitted and user_input.strip():
     # Build AI prompt
     approaches_str = "\n".join(gsk_approaches)
     flow_str = " → ".join(sales_call_flow)
+    figure_texts = "\n".join([f"{i+1}. {f['caption']}" for i, f in enumerate(pdf_figures)])
+
     prompt = f"""
 Language: {language}
 User input: {user_input}
@@ -212,14 +210,21 @@ Response Length: {response_length}
 Response Tone: {response_tone}
 
 Leaflet Evidence:
-{pdf_text[:3000]}
-FIGURE placeholders: FIGURE:1, FIGURE:2, etc.
+{pdf_text_truncated}
+
+Include relevant figures from the leaflet in your response when appropriate. Reference figures by their captions.
+
+FIGURES:
+{figure_texts}
 """
 
     # --- Call Groq API ---
     response = client.chat.completions.create(
-        model="llama-3.1-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
+        model="meta-llama/Llama-4-17b-chat",
+        messages=[
+            {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
+            {"role": "user", "content": prompt}
+        ],
         temperature=0.7
     )
 
