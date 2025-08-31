@@ -18,18 +18,30 @@ except ImportError:
     DOCX_AVAILABLE = False
     st.warning("⚠️ python-docx not installed. Word download unavailable.")
 
-# Groq API key (insert your key here)
+# -------------------------
+# Groq API key & model
+# -------------------------
 GROQ_API_KEY = "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"
+
+# Replace this with a model from client.models.list()
+SELECTED_MODEL = "YOUR_VALID_MODEL_NAME_HERE"
+
 client = Groq(api_key=GROQ_API_KEY)
 
+# -------------------------
 # Session state
+# -------------------------
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# -------------------------
 # Language
+# -------------------------
 language = st.radio("Select Language / اختر اللغة", options=["English", "العربية"])
 
+# -------------------------
 # GSK Logo
+# -------------------------
 logo_local_path = "images/gsk_logo.png"
 logo_fallback_url = "https://www.tungsten-network.com/wp-content/uploads/2020/05/GSK_Logo_Full_Colour_RGB.png"
 col1, col2 = st.columns([1,5])
@@ -42,7 +54,9 @@ with col1:
 with col2:
     st.title("🧠 AI Sales Call Assistant with Evidence & Figures")
 
+# -------------------------
 # Brand & product data
+# -------------------------
 gsk_brands = {
     "Shingrix": "Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf",
 }
@@ -50,7 +64,9 @@ gsk_brands_images = {
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
 }
 
+# -------------------------
 # Filters & options
+# -------------------------
 race_segments = [
     "R – Reach: Did not start to prescribe yet and Don't believe that vaccination is his responsibility.",
     "A – Acquisition: Prescribe to patient who initiate discussion about the vaccine but Convinced about Shingrix data.",
@@ -79,7 +95,9 @@ gsk_approaches = [
 ]
 sales_call_flow = ["Prepare", "Engage", "Create Opportunities", "Influence", "Drive Impact", "Post Call Analysis"]
 
+# -------------------------
 # Sidebar filters
+# -------------------------
 st.sidebar.header("Filters & Options")
 brand = st.sidebar.selectbox("Select Brand / اختر العلامة التجارية", options=list(gsk_brands.keys()))
 segment = st.sidebar.selectbox("Select RACE Segment / اختر شريحة RACE", race_segments)
@@ -91,7 +109,9 @@ response_length = st.sidebar.selectbox("Response Length / اختر طول الر
 response_tone = st.sidebar.selectbox("Response Tone / اختر نبرة الرد", ["Formal", "Casual", "Friendly", "Persuasive"])
 interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chatbot", "Card Dashboard", "Flow Visualization"])
 
+# -------------------------
 # Load Shingrix PDF (text + figures)
+# -------------------------
 pdf_text, pdf_figures = "", []
 pdf_path = gsk_brands[brand]
 
@@ -124,7 +144,9 @@ try:
 except Exception as e:
     st.warning(f"⚠️ Could not process Shingrix PDF: {e}")
 
+# -------------------------
 # Display brand image
+# -------------------------
 image_path = gsk_brands_images.get(brand)
 try:
     if image_path.startswith("http"):
@@ -137,11 +159,15 @@ except:
     st.warning(f"⚠️ Could not load image for {brand}. Using placeholder.")
     st.image("https://via.placeholder.com/200x100.png?text=No+Image", width=200)
 
+# -------------------------
 # Clear chat
+# -------------------------
 if st.button("🗑️ Clear Chat / مسح المحادثة"):
     st.session_state.chat_history = []
 
+# -------------------------
 # Chat display
+# -------------------------
 st.subheader("💬 Chatbot Interface")
 chat_placeholder = st.empty()
 
@@ -164,7 +190,9 @@ def display_chat(selected_figures=None):
 
 display_chat()
 
+# -------------------------
 # Chat input
+# -------------------------
 with st.form("chat_form", clear_on_submit=True):
     user_input = st.text_input("Type your message...", key="user_input_box")
     submitted = st.form_submit_button("➤")
@@ -216,9 +244,11 @@ Include relevant figures from the leaflet (only captions) in your response:
 {figure_texts}
 """
 
-    # Call Groq API with safe model
+    # -------------------------
+    # Call Groq API
+    # -------------------------
     response = client.chat.completions.create(
-        model="llama-3.1-chat",
+        model=SELECTED_MODEL,
         messages=[
             {"role": "system", "content": f"You are a helpful sales assistant chatbot that responds in {language}."},
             {"role": "user", "content": prompt}
@@ -230,7 +260,9 @@ Include relevant figures from the leaflet (only captions) in your response:
     st.session_state.chat_history.append({"role": "ai", "content": ai_output, "time": datetime.now().strftime("%H:%M")})
     display_chat(selected_figures=selected_figures)
 
+# -------------------------
 # Word download
+# -------------------------
 if DOCX_AVAILABLE and st.session_state.chat_history:
     latest_ai = [msg["content"] for msg in st.session_state.chat_history if msg["role"] == "ai"]
     if latest_ai:
