@@ -43,13 +43,9 @@ with col2:
 # --- Brand & product data ---
 gsk_brands = {
     "Shingrix": "Test V14 per brans/SP/ TestV14 per brand/Shingrix.pdf",
-    "Trelegy": "https://example.com/trelegy-leaflet",
-    "Zejula": "https://example.com/zejula-leaflet",
 }
 gsk_brands_images = {
-    "Trelegy": "https://www.example.com/trelegy.png",
     "Shingrix": "https://www.oma-apteekki.fi/WebRoot/NA/Shops/na/67D6/48DA/D0B0/D959/ECAF/0A3C/0E02/D573/3ad67c4e-e1fb-4476-a8a0-873423d8db42_3Dimage.png",
-    "Zejula": "https://cdn.salla.sa/QeZox/eyy7B0bg8D7a0Wwcov6UshWFc04R6H8qIgbfFq8u.png",
 }
 
 # --- Filters & options ---
@@ -96,38 +92,37 @@ interface_mode = st.sidebar.radio("Interface Mode / اختر واجهة", ["Chat
 # --- Load Shingrix PDF (text + figures) ---
 pdf_text, pdf_figures = "", []  # pdf_figures = list of dicts {image, caption}
 
-if brand == "Shingrix":
-    pdf_path = gsk_brands[brand]
-    try:
-        # Extract text
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                pdf_text += page.extract_text() or ""
+pdf_path = gsk_brands[brand]
+try:
+    # Extract text
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            pdf_text += page.extract_text() or ""
 
-        # Extract figures + captions
-        doc = fitz.open(pdf_path)
-        for page in doc:
-            blocks = page.get_text("blocks")
-            for img in page.get_images(full=True):
-                xref = img[0]
-                base_image = doc.extract_image(xref)
-                img_bytes = base_image["image"]
+    # Extract figures + captions
+    doc = fitz.open(pdf_path)
+    for page in doc:
+        blocks = page.get_text("blocks")
+        for img in page.get_images(full=True):
+            xref = img[0]
+            base_image = doc.extract_image(xref)
+            img_bytes = base_image["image"]
 
-                # find nearby text as caption
-                rect = fitz.Rect(page.get_image_bbox(img))
-                caption_text = ""
-                for block in blocks:
-                    bx, by, ex, ey, _, text, *_ = block
-                    block_rect = fitz.Rect(bx, by, ex, ey)
-                    if rect.intersects(block_rect) or abs(block_rect.y0 - rect.y1) < 50:
-                        caption_text += " " + text.strip()
-                caption_text = caption_text.strip() or f"Figure {len(pdf_figures)+1}"
-                pdf_figures.append({"image": img_bytes, "caption": caption_text})
+            # find nearby text as caption
+            rect = fitz.Rect(page.get_image_bbox(img))
+            caption_text = ""
+            for block in blocks:
+                bx, by, ex, ey, _, text, *_ = block
+                block_rect = fitz.Rect(bx, by, ex, ey)
+                if rect.intersects(block_rect) or abs(block_rect.y0 - rect.y1) < 50:
+                    caption_text += " " + text.strip()
+            caption_text = caption_text.strip() or f"Figure {len(pdf_figures)+1}"
+            pdf_figures.append({"image": img_bytes, "caption": caption_text})
 
-        st.success("✅ Shingrix leaflet loaded with text and figures.")
+    st.success("✅ Shingrix leaflet loaded with text and figures.")
 
-    except Exception as e:
-        st.warning(f"⚠️ Could not process Shingrix PDF: {e}")
+except Exception as e:
+    st.warning(f"⚠️ Could not process Shingrix PDF: {e}")
 
 # --- Display brand image safely ---
 image_path = gsk_brands_images.get(brand)
@@ -244,5 +239,4 @@ if DOCX_AVAILABLE and st.session_state.chat_history:
         st.download_button("📥 Download as Word (.docx)", word_buffer.getvalue(), file_name="AI_Response.docx")
 
 # --- Brand leaflet link ---
-if brand == "Shingrix":
-    st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
+st.markdown(f"[Brand Leaflet - {brand}]({gsk_brands[brand]})")
