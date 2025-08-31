@@ -4,3 +4,5 @@ requests
 groq
 python-docx
 matplotlib
+pdfplumber
+PyMuPDF
